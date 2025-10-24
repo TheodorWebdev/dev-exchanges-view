@@ -15,7 +15,7 @@ export function ColorModeProvider(props: ColorModeProviderProps) {
   )
 }
 
-export type ColorMode = "light" | "dark"
+export type ColorMode = "dark"
 
 export interface UseColorModeReturn {
   colorMode: ColorMode
@@ -27,7 +27,7 @@ export function useColorMode(): UseColorModeReturn {
   const { resolvedTheme, setTheme, forcedTheme } = useTheme()
   const colorMode = forcedTheme || resolvedTheme
   const toggleColorMode = () => {
-    setTheme(resolvedTheme === "dark" ? "light" : "dark")
+    setTheme("dark")
   }
   return {
     colorMode: colorMode as ColorMode,
