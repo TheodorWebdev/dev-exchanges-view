@@ -1,5 +1,22 @@
-import type {Candle, KlineStreamDataBinance, OrderBook, OrderBookBinanceData} from "@/utils/types.ts";
+import type { Candle, KlineStreamDataBinance, OrderBook, OrderBookBinanceData } from "@/utils/types.ts";
 import React from "react";
+
+
+export function createBinanceSubscribeMessage(topics: string[]) {
+    return JSON.stringify({
+        method: 'SUBSCRIBE',
+        params: topics,
+        id: 1
+    });
+}
+
+export function createBinanceUnsubscribeMessage(topics: string[]) {
+    return JSON.stringify({
+        method: 'UNSUBSCRIBE',
+        params: topics,
+        id: 1
+    });
+}
 
 export function BinanceParser() {
     const bidsMap = new Map<number, OrderBook>();

@@ -1,6 +1,22 @@
 import type { Candle, OrderBook, OrderBookBybitData } from "@/utils/types.ts";
 import React from "react";
 
+export function createBybitSubscribeMessage(topics: string[]) {
+    return JSON.stringify({
+        method: 'SUBSCRIBE',
+        params: topics,
+        id: 1
+    });
+}
+
+export function createBybitUnsubscribeMessage(topics: string[]) {
+    return JSON.stringify({
+        method: 'UNSUBSCRIBE',
+        params: topics,
+        id: 1
+    });
+}
+
 export function BybitParser() {
     const bidsMap = new Map<number, OrderBook>();
     const asksMap = new Map<number, OrderBook>();
