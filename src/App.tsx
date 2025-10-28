@@ -4,6 +4,7 @@ import { HStack, VStack, Box } from '@chakra-ui/react';
 import TradingChart from './components/TradingChart';
 import OrderBook from './components/OrderBook';
 import Controller from "./components/Controller.tsx";
+import WebSocketComponent from "./components/WebSocket.tsx";
 
 function App() {
   // const wsUrl = exchange === 'binance' 
@@ -12,7 +13,8 @@ function App() {
 
     return (
         <Provider>
-            <VStack w="100vw" h="100vh" spacing={5}>
+            <WebSocketComponent/>
+            <VStack w="100vw" h="100vh">
                 <Box mt={4}>
                     <Controller />
                 </Box>

@@ -1,21 +1,26 @@
 import { useRef, useEffect, useState } from 'react';
 
 import { HStack, Card, Heading, Box, Text, Separator } from '@chakra-ui/react';
+import type {OrderBookTypes} from "../utils/types.ts";
+import {eventEmitter, EVENTS} from "../utils/events.ts";
 
-interface OrderBook {
-	b: Array<[string, string]>,
-	a: Array<[string, string]>,
-}
-
-// mock (remove soon)
-const mockOrderBookData: OrderBook = {
-	b: Array.from({ length: 50 }, () => ["30247.20", "30.028"]),
-	a: Array.from({ length: 50 }, () => ["30248.21", "30.038"]),
-};
+// interface OrderBook {
+// 	b: Array<[string, string]>,
+// 	a: Array<[string, string]>,
+// }
+//
+// // mock (remove soon)
+// const mockOrderBookData: OrderBook = {
+// 	b: Array.from({ length: 50 }, () => ["30247.20", "30.028"]),
+// 	a: Array.from({ length: 50 }, () => ["30248.21", "30.038"]),
+// };
 
 export default function OrderBook() {
 	const bidsRef = useRef<HTMLDivElement>(null);
 	const [ isUserScroll, setIsUserScroll ] = useState(false);
+
+	const [bids, setBids] = useState<OrderBookTypes[]>([]);
+	const [asks, setAsks] = useState<OrderBookTypes[]>([]);
 
 	const handleScroll = () => {
 		const container = bidsRef.current;
@@ -37,6 +42,19 @@ export default function OrderBook() {
 		container.scrollTop = container.scrollHeight - container.clientHeight;
 
 	}, [isUserScroll]);
+
+	useEffect(() => {
+		const updateHandler = ({ bids, asks }: { bids: OrderBookTypes[]; asks: OrderBookTypes[] }) => {
+			setBids(bids.slice(0, 50));
+			setAsks(asks.slice(0, 50));
+		};
+
+		eventEmitter.on(EVENTS.ORDERBOOK_UPDATE, updateHandler);
+
+		return () => {
+			eventEmitter.off(EVENTS.ORDERBOOK_UPDATE, updateHandler);
+		};
+	}, []);
 
 	return (
 		<Card.Root w="30vw" h="90vh">
@@ -66,20 +84,20 @@ export default function OrderBook() {
 						alignItems="flex-start"
 					>
 						<Box color="red.600" w="30%">
-							{mockOrderBookData.b.map(([price], index) => (
-								<Text key={index}>{price}</Text>
+							{bids.map(({ price }, i) => (
+								<Text key={i}>{price.toFixed(2)}</Text>
 							))}
 						</Box>
 
 						<Box color="gray.400" w="30%">
-							{mockOrderBookData.b.map(([,amount], index) => (
-								<Text key={index}>{amount}</Text>
+							{bids.map(({ amount }, i) => (
+								<Text key={i}>{amount.toFixed(3)}</Text>
 							))}
 						</Box>
 
 						<Box color="orange.200" w="30%">
-							{mockOrderBookData.b.map(([price, amount], index) => (
-								<Text key={index}>{(parseFloat(amount) * parseFloat(price)).toFixed(2)}</Text>
+							{bids.map(({ total }, i) => (
+								<Text key={i}>{total.toFixed(2)}</Text>
 							))}
 						</Box>
 					</HStack>
@@ -95,20 +113,20 @@ export default function OrderBook() {
 						alignItems="flex-start"
 					>
 						<Box color="green.600" w="30%">
-							{mockOrderBookData.a.map(([price], index) => (
-								<Text key={index}>{price}</Text>
+							{asks.map(({ price }, i) => (
+								<Text key={i}>{price.toFixed(2)}</Text>
 							))}
 						</Box>
 
 						<Box color="gray.400" w="30%">
-							{mockOrderBookData.a.map(([,amount], index) => (
-								<Text key={index}>{amount}</Text>
+							{asks.map(({ amount }, i) => (
+								<Text key={i}>{amount.toFixed(3)}</Text>
 							))}
 						</Box>
 
 						<Box color="orange.200" w="30%">
-							{mockOrderBookData.a.map(([price, amount], index) => (
-								<Text key={index}>{(parseFloat(amount) * parseFloat(price)).toFixed(2)}</Text>
+							{asks.map(({ total }, i) => (
+								<Text key={i}>{total.toFixed(2)}</Text>
 							))}
 						</Box>
 					</HStack>
