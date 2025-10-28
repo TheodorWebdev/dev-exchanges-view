@@ -27,6 +27,7 @@ export default function WebSocketComponent() {
 			const { wsUrl, topics } = e.detail;
 
 			if (wsRef.current) {
+				console.log('WebSocket: закрываем старое соединение');
 				wsRef.current.close();
 				wsRef.current = null;
 			}
@@ -34,18 +35,24 @@ export default function WebSocketComponent() {
 			const ws = new WebSocket(wsUrl);
 		
 			ws.onopen = () => {
-				ws.send(JSON.stringify({
-					op: 'subscribe',
-					args: [topics],
-				}))
+				console.log('WebSocket: соединение открыто');
+				topics.forEach((topic: string) => {
+					ws.send(JSON.stringify({ op: 'subscribe', args: [topic] }))
+				});
 			};
 
 			ws.onmessage = (event) => {
 				console.log('Получено сообщение:', event.data);
 			};
 
-			ws.onclose = () => {
-				console.log('WebSocket отключён');
+			ws.onclose = (event) => {
+				if (event.wasClean) {
+					alert(`[close] Соединение закрыто чисто, код=${event.code} причина=${event.reason}`);
+				} else {
+					// например, сервер убил процесс или сеть недоступна
+					// обычно в этом случае event.code 1006
+					alert('[close] Соединение прервано');
+				}
 			};
 
 			ws.onerror = (error) => {
@@ -55,11 +62,12 @@ export default function WebSocketComponent() {
 			wsRef.current = ws;
 		};
 
-		window.addEventListener('wsConnect', handleConnect as EventListener);
+		window.addEventListener('wsConnectionChange', handleConnect as EventListener);
 
 		return () => {
-			window.removeEventListener('wsConnectionRequest', handleConnect as EventListener);
+			window.removeEventListener('wsConnectionChange', handleConnect as EventListener);
 			if (wsRef.current) {
+				console.log('WebSocket: закрываем соединение при размонтировании');
 				wsRef.current.close();
 			}
 		};
