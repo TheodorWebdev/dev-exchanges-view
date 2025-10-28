@@ -1,14 +1,34 @@
-import { useEffect } from 'react';
+import GenericSelector from "./GenericSelector.tsx";
+import {HStack} from "@chakra-ui/react";
+import { PAIRS } from '../utils/pairs';
+import { INTERVAL_1M, INTERVAL_5M, INTERVAL_15M, INTERVAL_1H, INTERVAL_1D } from '../utils/exchanges';
 
-export default function Controller({ wsUrl, topics }: { wsUrl: string, topics: string[] }) {
-  useEffect(() => {
-	console.log('Controller: отправляем событие с параметрами:', { wsUrl, topics });
-    // Отправляем кастомное событие с новым состоянием
-    window.dispatchEvent(
-		new CustomEvent('wsConnectionChange', { 
-			detail: { wsUrl, topics },
-		}));
-  }, [wsUrl, topics]);
+const Controller = () => {
+    const exchanges = ["BINANCE", "BYBIT"];
+    const pairs = PAIRS.map(p => p.symbol);
+    const intervals = [INTERVAL_1M, INTERVAL_5M, INTERVAL_15M, INTERVAL_1H, INTERVAL_1D];
 
-  return null;
-}
+    return (
+        <HStack>
+            <GenericSelector
+                value={"BINANCE"}
+                setValue={() => {}}
+                options={exchanges}
+            />
+
+            <GenericSelector
+                value={"BTCUSDT"}
+                setValue={() => {}}
+                options={pairs}
+            />
+
+            <GenericSelector
+                value={"1m"}
+                setValue={() => {}}
+                options={intervals}
+            />
+        </HStack>
+    );
+};
+
+export default Controller;
