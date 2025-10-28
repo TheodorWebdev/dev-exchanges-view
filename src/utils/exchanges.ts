@@ -10,6 +10,6 @@ export const EXCHANGES = {
 };
 
 export const SOCKET_URLS = {
-    BINANCE: 'wss://stream.binance.com:9443',
+    BINANCE: 'wss://stream.binance.com:9443/ws',
     BYBIT: 'wss://stream.bybit.com/v5/public/spot',
 };

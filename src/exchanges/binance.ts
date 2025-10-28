@@ -1,4 +1,4 @@
-import type { Candle, KlineStreamDataBinance, OrderBook, OrderBookBinanceData } from "@/utils/types.ts";
+import type {Candle, KlineStreamDataBinance, OrderBookBinanceData, OrderBookTypes} from "@/utils/types.ts";
 import React from "react";
 
 
@@ -19,15 +19,15 @@ export function createBinanceUnsubscribeMessage(topics: string[]) {
 }
 
 export function BinanceParser() {
-    const bidsMap = new Map<number, OrderBook>();
-    const asksMap = new Map<number, OrderBook>();
+    const bidsMap = new Map<number, OrderBookTypes>();
+    const asksMap = new Map<number, OrderBookTypes>();
     let lastUpdateId: number | null = null;
 
     return {
         parseOrderBook(
             data: OrderBookBinanceData,
-            setBids: (b: OrderBook[]) => void,
-            setAsks: (a: OrderBook[]) => void
+            setBids: (b: OrderBookTypes[]) => void,
+            setAsks: (a: OrderBookTypes[]) => void
         ) {
             if (!data.a || !data.b || data.u === undefined || data.U === undefined) return;
 

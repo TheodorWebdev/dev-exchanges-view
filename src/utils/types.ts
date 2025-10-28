@@ -1,4 +1,4 @@
-export interface OrderBook {
+export interface OrderBookTypes {
     price: number;
     amount: number;
     total: number;
