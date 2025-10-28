@@ -3,17 +3,15 @@ import React from "react";
 
 export function createBybitSubscribeMessage(topics: string[]) {
     return JSON.stringify({
-        method: 'SUBSCRIBE',
-        params: topics,
-        id: 1
+        op: 'subscribe',
+        args: topics,
     });
 }
 
 export function createBybitUnsubscribeMessage(topics: string[]) {
     return JSON.stringify({
-        method: 'UNSUBSCRIBE',
-        params: topics,
-        id: 1
+        op: 'unsubscribe',
+        args: topics,
     });
 }
 

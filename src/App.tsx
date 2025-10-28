@@ -4,15 +4,12 @@ import { HStack, VStack, Box } from '@chakra-ui/react';
 import TradingChart from './components/TradingChart';
 import OrderBook from './components/OrderBook';
 import Controller from "./components/Controller.tsx";
+import WebSocketComponent from './components/WebSocket.tsx'
 
 function App() {
-  // const wsUrl = exchange === 'binance' 
-  //   ? 'wss://stream.binance.com:9443/ws/btcusdt@kline_1m'
-  //   : 'wss://stream.bybit.com/v5/public/linear';
-
     return (
         <Provider>
-            <VStack w="100vw" h="100vh" spacing={5}>
+            <VStack w="100vw" h="100vh">
                 <Box mt={4}>
                     <Controller />
                 </Box>
@@ -22,6 +19,8 @@ function App() {
                     <TradingChart />
                 </HStack>
             </VStack>
+
+            <WebSocketComponent />
         </Provider>
     );
 }

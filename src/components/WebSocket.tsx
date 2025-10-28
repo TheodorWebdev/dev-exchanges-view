@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { eventEmitter, EVENTS } from '../utils/events';
 import { BinanceParser, createBinanceSubscribeMessage } from '../exchanges/binance';
 import type { Candle, KlineStreamDataBinance, OrderBookBinanceData } from '../utils/types';
+import { createBybitSubscribeMessage } from '../exchanges/bybit'
 
 export default function WebSocketComponent() {
 	// Реактивное состояние через useRef
@@ -14,13 +15,14 @@ export default function WebSocketComponent() {
 
 	// Подписка на события смены вебсокет соединения
 	useEffect(() => {
-		const handleConnectionChange = (wsUrl: string, topics: string[]) => {
+		const handleConnectionChange = ({ wsUrl, topics, exchange }: { wsUrl: string, topics: string[], exchange: string } ) => {
 			if (wsRef.current) {
 				console.log('WebSocket: закрываем старое соединение');
 				wsRef.current.close();
 				wsRef.current = null;
 			}
 
+			console.log(exchange);
 			// Очистка данных при переключении
 			candlestickDataRef.current = [];
 			bidsMapRef.current.clear();
@@ -30,12 +32,23 @@ export default function WebSocketComponent() {
 			const ws = new WebSocket(wsUrl);
 		
 			ws.onopen = () => {
-				// Используем функцию для создания сообщения подписки из binance.ts
-				const subscribeMessage = createBinanceSubscribeMessage(topics);
-				ws.send(subscribeMessage);
+				console.log("[WS] Cоединение создано");
+				switch (exchange) {
+					case "BINANCE": {
+						const subscribeMessage = createBinanceSubscribeMessage(topics);
+						ws.send(subscribeMessage);
+						break;
+					}
+					case "BYBIT": { 
+						const subscribeMessage = createBybitSubscribeMessage(topics);
+						ws.send(subscribeMessage);
+						break; 
+					}
+				}
 			};
 
 			ws.onmessage = (event) => {
+				console.log(event.data);
 				const data = JSON.parse(event.data);
 				
 				// Обработка сообщений от Binance через BinanceParser
@@ -89,11 +102,9 @@ export default function WebSocketComponent() {
 
 			ws.onclose = (event) => {
 				if (event.wasClean) {
-					alert(`[close] Соединение закрыто чисто, код=${event.code} причина=${event.reason}`);
+					console.log(`[close] Соединение закрыто чисто, код=${event.code}`);
 				} else {
-					// например, сервер убил процесс или сеть недоступна
-					// обычно в этом случае event.code 1006
-					alert('[close] Соединение прервано');
+					console.log('[close] Соединение прервано');
 				}
 			};
 
