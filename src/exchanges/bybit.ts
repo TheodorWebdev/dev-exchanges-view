@@ -1,5 +1,4 @@
 import type { Candle, OrderBookTypes, OrderBookBybitData } from "../utils/types.ts";
-import React from "react";
 
 export function createBybitSubscribeMessage(topics: string[]) {
     return JSON.stringify({
@@ -16,12 +15,12 @@ export function createBybitUnsubscribeMessage(topics: string[]) {
 }
 
 export function BybitParser() {
-    const bidsMap = new Map<number, OrderBookTypes>();
-    const asksMap = new Map<number, OrderBookTypes>();
     return {
         parseOrderBook(
             data: OrderBookBybitData,
             type: 'snapshot' | 'delta',
+            bidsMap: Map<number, OrderBookTypes>,
+            asksMap: Map<number, OrderBookTypes>,
             setBids: (b: OrderBookTypes[]) => void,
             setAsks: (a: OrderBookTypes[]) => void
         ) {
@@ -101,7 +100,7 @@ export function BybitParser() {
                 }
 
                 // Возвращаем текущие значения из Map
-                setBids(Array.from(bidsMap.values()).sort((a, b) => b.price - a.price));
+                setBids(Array.from(bidsMap.values()).sort((a, b) => a.price - b.price));
                 setAsks(Array.from(asksMap.values()).sort((a, b) => a.price - b.price));
             }
         },

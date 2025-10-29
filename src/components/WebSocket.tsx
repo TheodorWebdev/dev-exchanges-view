@@ -1,9 +1,9 @@
 import { useEffect, useRef } from 'react';
 import { eventEmitter, EVENTS } from '../utils/events';
-import { BinanceParser, createBinanceSubscribeMessage, createBinanceUnsubscribeMessage } from '../exchanges/binance';
+import { BinanceParser, createBinanceSubscribeMessage } from '../exchanges/binance';
 import { BybitParser } from '../exchanges/bybit';
 import type { Candle, OrderBookTypes } from '../utils/types';
-import { createBybitSubscribeMessage, createBybitUnsubscribeMessage } from '../exchanges/bybit'
+import { createBybitSubscribeMessage } from '../exchanges/bybit';
 
 export default function WebSocketComponent() {
 	// Реактивное состояние через useRef
@@ -12,7 +12,7 @@ export default function WebSocketComponent() {
 	const intervalRef = useRef<number | null>(null);
 	const bidsMapRef = useRef<Map<number, { price: number; amount: number; total: number }>>(new Map());
 	const asksMapRef = useRef<Map<number, { price: number; amount: number; total: number }>>(new Map());
-	const parserRef = useRef(BybitParser());
+	const parserRef = useRef<any>(null);
 
 	// Подписка на события смены вебсокет соединения
 	useEffect(() => {
@@ -24,11 +24,21 @@ export default function WebSocketComponent() {
 			}
 
 			console.log(exchange);
+
 			// Очистка данных при переключении
 			candlestickDataRef.current = [];
 			bidsMapRef.current.clear();
 			asksMapRef.current.clear();
-			parserRef.current = BybitParser();
+			switch (exchange) {
+				case "BINANCE": {
+					parserRef.current = BinanceParser();
+					break;
+				}
+				case "BYBIT": { 
+					parserRef.current = BybitParser ();
+					break; 
+				}
+			}
 
 			const ws = new WebSocket(wsUrl);
 		
@@ -58,6 +68,8 @@ export default function WebSocketComponent() {
 						parserRef.current.parseOrderBook(
 							data.data,
 							data.type,
+							bidsMapRef.current,
+							asksMapRef.current,
 							(bids: OrderBookTypes[]) => {
 								bidsMapRef.current = new Map(bids.map(item => [item.price, item]));
 							},
@@ -78,19 +90,6 @@ export default function WebSocketComponent() {
 					console.log(`[close] Соединение закрыто чисто, код=${event.code}`);
 				} else {
 					console.log('[close] Соединение прервано');
-				}
-
-				switch (exchange) {
-					case "BINANCE": {
-						const unsubscribeMessage = createBinanceUnsubscribeMessage(topics);
-						ws.send(unsubscribeMessage);
-						break;
-					}
-					case "BYBIT": {
-						const unsubscribeMessage = createBybitUnsubscribeMessage(topics);
-						ws.send(unsubscribeMessage);
-						break;
-					}
 				}
 			};
 
@@ -116,7 +115,6 @@ export default function WebSocketComponent() {
 	// Периодическая отправка событий с определённым интервалом
 	useEffect(() => {
 		const updateInterval = 500; // 500 миллисекунд
-		console.log('WebSocket: useEffect с интервалом запущен');
 
 		intervalRef.current = setInterval(() => {
 			// Инициализация событий: candlestick data
@@ -129,7 +127,6 @@ export default function WebSocketComponent() {
 			const asks = Array.from(asksMapRef.current.values()).sort((a, b) => a.price - b.price);
 			
 			if (bids.length > 0 || asks.length > 0) {
-				console.log('WebSocket: отправляем обновление стакана:', { bids, asks });
 				eventEmitter.emit(EVENTS.ORDERBOOK_UPDATE, { bids, asks });
 			}
 		}, updateInterval);
