@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState } from 'react';
 
-import { HStack, Card, Heading, Box, Text, Separator } from '@chakra-ui/react';
+import { HStack, Card, Heading, Box, Separator } from '@chakra-ui/react';
 import type {OrderBookTypes} from "../utils/types.ts";
 import {eventEmitter, EVENTS} from "../utils/events.ts";
 
@@ -60,8 +60,8 @@ export default function OrderBook() {
 	return (
 		<Card.Root w="30vw" h="90vh">
 			<Card.Header borderBottomWidth="1px">
-				<HStack 
-					w="100%" 
+				<HStack
+					w="100%"
 					justifyContent="space-between"
 					pb="4"
 				>
@@ -71,34 +71,17 @@ export default function OrderBook() {
 				</HStack>
 			</Card.Header>
 			<Card.Body overflowY="hidden">
-				<Box 
-					ref={bidsRef} 
-					onScroll={handleScroll} 
-					w="100%" 
-					flex="1" 
-					overflowY="auto"
-				>
-					<HStack
-						fontWeight="700" 
-						w="100%" 
-						justifyContent="space-between"
-						alignItems="flex-start"
-					>
-						<Box color="red.600" w="30%">
-							{bids.map(({ price }, i) => (
-								<Text key={i}>{price.toFixed(2)}</Text>
-							))}
-						</Box>
-
-						<Box color="gray.400" w="30%">
-							{bids.map(({ amount }, i) => (
-								<Text key={i}>{amount.toFixed(3)}</Text>
-							))}
-						</Box>
-
-						<Box color="orange.200" w="30%">
-							{bids.map(({ total }, i) => (
-								<Text key={i}>{total.toFixed(2)}</Text>
+				<Box ref={bidsRef} onScroll={handleScroll} w="100%" flex="1" overflowY="auto">
+					<HStack fontWeight="700" w="100%" justifyContent="space-between" alignItems="flex-start">
+						<Box w="100%">
+							{bids.map(({ price, amount, total }, i) => (
+								<Box display="flex" flexDirection="column" key={i}>
+									<HStack justifyContent="space-between">
+										<Box color="red.600" w="30%">{price.toFixed(2)}</Box>
+										<Box color="gray.400" w="30%">{amount.toFixed(3)}</Box>
+										<Box color="orange.200" w="30%">{total.toFixed(2)}</Box>
+									</HStack>
+								</Box>
 							))}
 						</Box>
 					</HStack>
@@ -109,25 +92,19 @@ export default function OrderBook() {
 				<Box w="100%" flex="1" overflowY="auto">
 					<HStack
 						fontWeight="700"
-						w="100%" 
+						w="100%"
 						justifyContent="space-between"
 						alignItems="flex-start"
 					>
-						<Box color="green.600" w="30%">
-							{asks.map(({ price }, i) => (
-								<Text key={i}>{price.toFixed(2)}</Text>
-							))}
-						</Box>
-
-						<Box color="gray.400" w="30%">
-							{asks.map(({ amount }, i) => (
-								<Text key={i}>{amount.toFixed(3)}</Text>
-							))}
-						</Box>
-
-						<Box color="orange.200" w="30%">
-							{asks.map(({ total }, i) => (
-								<Text key={i}>{total.toFixed(2)}</Text>
+						<Box w="100%">
+							{asks.map(({ price, amount, total }, i) => (
+								<Box display="flex" flexDirection="column" key={i}>
+									<HStack justifyContent="space-between">
+										<Box color="green.600" w="30%">{price.toFixed(2)}</Box>
+										<Box color="gray.400" w="30%">{amount.toFixed(3)}</Box>
+										<Box color="orange.200" w="30%">{total.toFixed(2)}</Box>
+									</HStack>
+								</Box>
 							))}
 						</Box>
 					</HStack>
