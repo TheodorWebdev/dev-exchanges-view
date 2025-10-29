@@ -3,14 +3,14 @@ import React from "react";
 
 export function createBybitSubscribeMessage(topics: string[]) {
     return JSON.stringify({
-        op: 'subscribe',
+        op: "subscribe",
         args: topics,
     });
 }
 
 export function createBybitUnsubscribeMessage(topics: string[]) {
     return JSON.stringify({
-        op: 'unsubscribe',
+        op: "unsubscribe",
         args: topics,
     });
 }
@@ -108,8 +108,8 @@ export function BybitParser() {
 
         parseCandlestick(
             data: { s: string; k: { t: number; o: string; h: string; l: string; c: string } },
-            setCandles: React.Dispatch<React.SetStateAction<Candle[]>>
-        ) {
+            candles: Candle[]
+        ): Candle[] {
             const k = data.k;
             const newCandle: Candle = {
                 time: Math.floor(k.t / 1000),
@@ -118,7 +118,7 @@ export function BybitParser() {
                 low: parseFloat(k.l),
                 close: parseFloat(k.c),
             };
-            setCandles(prev => [...prev.slice(-50), newCandle]);
+            return [...candles.slice(-50), newCandle];
         },
     };
 }
