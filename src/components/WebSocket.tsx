@@ -1,8 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { eventEmitter, EVENTS } from '../utils/events';
-import { BinanceParser, createBinanceSubscribeMessage } from '../exchanges/binance';
+import {BinanceParser, createBinanceSubscribeMessage, createBinanceUnsubscribeMessage} from '../exchanges/binance';
 import type { Candle, KlineStreamDataBinance, OrderBookBinanceData } from '../utils/types';
-import { createBybitSubscribeMessage } from '../exchanges/bybit'
+import {createBybitSubscribeMessage, createBybitUnsubscribeMessage} from '../exchanges/bybit'
 
 export default function WebSocketComponent() {
 	// Реактивное состояние через useRef
@@ -105,6 +105,19 @@ export default function WebSocketComponent() {
 					console.log(`[close] Соединение закрыто чисто, код=${event.code}`);
 				} else {
 					console.log('[close] Соединение прервано');
+				}
+
+				switch (exchange) {
+					case "BINANCE": {
+						const unsubscribeMessage = createBinanceUnsubscribeMessage(topics);
+						ws.send(unsubscribeMessage);
+						break;
+					}
+					case "BYBIT": {
+						const unsubscribeMessage = createBybitUnsubscribeMessage(topics);
+						ws.send(unsubscribeMessage);
+						break;
+					}
 				}
 			};
 

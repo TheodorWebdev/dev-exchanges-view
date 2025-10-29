@@ -1,7 +1,7 @@
 import GenericSelector from "./GenericSelector.tsx";
 import {HStack} from "@chakra-ui/react";
 import { PAIRS } from '../utils/pairs';
-import { INTERVAL_1M, INTERVAL_5M, INTERVAL_15M, INTERVAL_1H, INTERVAL_1D } from '../utils/exchanges';
+import {INTERVAL_1M, INTERVAL_5M, INTERVAL_15M, INTERVAL_1H, INTERVAL_1D, SOCKET_URLS} from '../utils/exchanges';
 
 import { useState, useEffect } from 'react';
 import { eventEmitter, EVENTS } from '../utils/events';
@@ -11,22 +11,21 @@ const Controller = () => {
     const pairs = PAIRS.map(p => p.symbol);
     const intervals = [INTERVAL_1M, INTERVAL_5M, INTERVAL_15M, INTERVAL_1H, INTERVAL_1D];
 
-	const [exchange, setExchange] = useState<string>("BYBIT");
+	const [exchange, setExchange] = useState<string>("BINANCE");
 	const [pair, setPair] = useState<string>("BTCUSDT");
 	const [interval, setInterval] = useState<string>("1m");
 
-	const wsUrl = exchange === "BINANCE"
-		? `wss://stream.binance.com:9443/ws`
-		: `wss://stream.bybit.com/v5/public/spot`;
+    useEffect(() => {
+        const wsUrl = SOCKET_URLS[exchange as keyof typeof SOCKET_URLS];
 
-	const topics = exchange === "BINANCE"
-		? [`${pair.toLowerCase()}@kline_${interval}`, `${pair.toLowerCase()}@depth100ms`]
-		: [`kline.${interval[0]}.${pair}`, `orderbook.50.${pair}`];
+        const topics = exchange === "BINANCE"
+            ? [`${pair.toLowerCase()}@kline_${interval}`, `${pair.toLowerCase()}@depth100ms`]
+            : [`kline.${interval[0]}.${pair}`, `orderbook.50.${pair}`];
 
-	useEffect(() => {
-		eventEmitter.emit(EVENTS.WEBSOCKET_CONNECTION_CHANGE, { wsUrl, topics, exchange });
-
-	}, [wsUrl, topics, exchange]);
+        setTimeout(() => {
+            eventEmitter.emit(EVENTS.WEBSOCKET_CONNECTION_CHANGE, { wsUrl, topics, exchange });
+        }, 0);
+    }, [exchange, pair, interval]);
 
     return (
         <HStack>

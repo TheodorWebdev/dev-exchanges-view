@@ -1,67 +1,85 @@
-import type { Candle, OrderBook, OrderBookBybitData } from "@/utils/types.ts";
-import React from "react";
+import type { Candle, OrderBookTypes, OrderBookBybitData } from "@/utils/types.ts";
 
 export function createBybitSubscribeMessage(topics: string[]) {
     return JSON.stringify({
-        op: 'subscribe',
+        op: "subscribe",
         args: topics,
     });
 }
 
 export function createBybitUnsubscribeMessage(topics: string[]) {
     return JSON.stringify({
-        op: 'unsubscribe',
+        op: "unsubscribe",
         args: topics,
     });
 }
 
 export function BybitParser() {
-    const bidsMap = new Map<number, OrderBook>();
-    const asksMap = new Map<number, OrderBook>();
-    let lastSeq: number | null = null;
-
     return {
         parseOrderBook(
             data: OrderBookBybitData,
-            setBids: (b: OrderBook[]) => void,
-            setAsks: (a: OrderBook[]) => void
-        ) {
-            if (!data.b || !data.a || data.u === undefined) return;
+            bidsMap: Map<number, OrderBookTypes>,
+            asksMap: Map<number, OrderBookTypes>,
+            lastSeq: number | null
+        ): {
+            bids: OrderBookTypes[];
+            asks: OrderBookTypes[];
+            lastSeq: number | null;
+        } {
+            if (!data.b || !data.a || data.u === undefined)
+                return { bids: [], asks: [], lastSeq };
 
-            if (lastSeq === null) lastSeq = data.seq;
-            if (data.seq <= (lastSeq ?? 0)) return;
-
-            if (data.seq > (lastSeq ?? 0) + 1) {
+            if (data.type === "snapshot") {
                 bidsMap.clear();
                 asksMap.clear();
+
+                data.b.forEach(([priceStr, amountStr]) => {
+                    const price = parseFloat(priceStr);
+                    const amount = parseFloat(amountStr);
+                    bidsMap.set(price, { price, amount, total: price * amount });
+                });
+
+                data.a.forEach(([priceStr, amountStr]) => {
+                    const price = parseFloat(priceStr);
+                    const amount = parseFloat(amountStr);
+                    asksMap.set(price, { price, amount, total: price * amount });
+                });
+
                 lastSeq = data.seq;
-                return;
             }
 
-            data.b.forEach((amountStr, priceStr) => {
-                const price = parseFloat(priceStr);
-                const amount = parseFloat(amountStr);
-                if (amount === 0) bidsMap.delete(price);
-                else bidsMap.set(price, { price, amount, total: price * amount });
-            });
+            if (data.type === "delta") {
+                if (lastSeq === null || data.seq <= lastSeq)
+                    return { bids: [], asks: [], lastSeq };
 
-            data.a.forEach((amountStr, priceStr) => {
-                const price = parseFloat(priceStr);
-                const amount = parseFloat(amountStr);
-                if (amount === 0) asksMap.delete(price);
-                else asksMap.set(price, { price, amount, total: price * amount });
-            });
+                data.b.forEach(([priceStr, amountStr]) => {
+                    const price = parseFloat(priceStr);
+                    const amount = parseFloat(amountStr);
+                    if (amount === 0) bidsMap.delete(price);
+                    else bidsMap.set(price, { price, amount, total: price * amount });
+                });
 
-            lastSeq = data.seq;
+                data.a.forEach(([priceStr, amountStr]) => {
+                    const price = parseFloat(priceStr);
+                    const amount = parseFloat(amountStr);
+                    if (amount === 0) asksMap.delete(price);
+                    else asksMap.set(price, { price, amount, total: price * amount });
+                });
 
-            setBids(Array.from(bidsMap.values()).sort((a, b) => b.price - a.price));
-            setAsks(Array.from(asksMap.values()).sort((a, b) => a.price - b.price));
+                lastSeq = data.seq;
+            }
+
+            return {
+                bids: Array.from(bidsMap.values()).sort((a, b) => b.price - a.price),
+                asks: Array.from(asksMap.values()).sort((a, b) => a.price - b.price),
+                lastSeq,
+            };
         },
 
         parseCandlestick(
             data: { s: string; k: { t: number; o: string; h: string; l: string; c: string } },
-            setCandles: React.Dispatch<React.SetStateAction<Candle[]>>
-        ) {
+            candles: Candle[]
+        ): Candle[] {
             const k = data.k;
             const newCandle: Candle = {
                 time: Math.floor(k.t / 1000),
@@ -70,7 +88,7 @@ export function BybitParser() {
                 low: parseFloat(k.l),
                 close: parseFloat(k.c),
             };
-            setCandles(prev => [...prev.slice(-50), newCandle]);
+            return [...candles.slice(-50), newCandle];
         },
     };
 }

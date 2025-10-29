@@ -1,69 +1,66 @@
-import type {Candle, KlineStreamDataBinance, OrderBookBinanceData, OrderBookTypes} from "@/utils/types.ts";
-import React from "react";
-
+import type {
+    Candle,
+    KlineStreamDataBinance,
+    OrderBookBinanceData,
+    OrderBookTypes
+} from "@/utils/types.ts";
+import { updateOrderBookLevels } from "../utils/helpersFunctions.ts";
 
 export function createBinanceSubscribeMessage(topics: string[]) {
     return JSON.stringify({
-        method: 'SUBSCRIBE',
+        method: "SUBSCRIBE",
         params: topics,
-        id: 1
+        id: 1,
     });
 }
 
 export function createBinanceUnsubscribeMessage(topics: string[]) {
     return JSON.stringify({
-        method: 'UNSUBSCRIBE',
+        method: "UNSUBSCRIBE",
         params: topics,
-        id: 1
+        id: 1,
     });
 }
 
 export function BinanceParser() {
-    const bidsMap = new Map<number, OrderBookTypes>();
-    const asksMap = new Map<number, OrderBookTypes>();
-    let lastUpdateId: number | null = null;
-
     return {
         parseOrderBook(
             data: OrderBookBinanceData,
-            setBids: (b: OrderBookTypes[]) => void,
-            setAsks: (a: OrderBookTypes[]) => void
-        ) {
-            if (!data.a || !data.b || data.u === undefined || data.U === undefined) return;
+            bidsMap: Map<number, OrderBookTypes>,
+            asksMap: Map<number, OrderBookTypes>,
+            lastUpdateId: number | null
+        ): {
+            bids: OrderBookTypes[];
+            asks: OrderBookTypes[];
+            lastUpdateId: number | null;
+        } {
+            if (!data.a || !data.b || data.u === undefined || data.U === undefined)
+                return { bids: [], asks: [], lastUpdateId };
 
             if (lastUpdateId === null) lastUpdateId = data.u;
-            if (data.u < (lastUpdateId ?? 0)) return;
+            if (data.u < lastUpdateId) return { bids: [], asks: [], lastUpdateId };
 
-            if (data.U > (lastUpdateId ?? 0) + 1) {
+            if (data.U > lastUpdateId + 1) {
                 bidsMap.clear();
                 asksMap.clear();
                 lastUpdateId = data.u;
-                return;
+                return { bids: [], asks: [], lastUpdateId };
             }
 
-            data.a.forEach(([priceStr, qtyStr]: [string, string]) => {
-                const price = parseFloat(priceStr);
-                const amount = parseFloat(qtyStr);
-                if (amount === 0) asksMap.delete(price);
-                else asksMap.set(price, { price, amount, total: price * amount });
-            });
-
-            data.b.forEach(([priceStr, qtyStr]: [string, string]) => {
-                const price = parseFloat(priceStr);
-                const amount = parseFloat(qtyStr);
-                if (amount === 0) bidsMap.delete(price);
-                else bidsMap.set(price, { price, amount, total: price * amount });
-            });
+            // общ функц
+            const updatedAsks = updateOrderBookLevels(asksMap, data.a);
+            const updatedBids = updateOrderBookLevels(bidsMap, data.b);
 
             lastUpdateId = data.u;
-            setBids(Array.from(bidsMap.values()).sort((a, b) => b.price - a.price));
-            setAsks(Array.from(asksMap.values()).sort((a, b) => a.price - b.price));
+
+            return {
+                bids: Array.from(updatedBids.values()).sort((a, b) => b.price - a.price),
+                asks: Array.from(updatedAsks.values()).sort((a, b) => a.price - b.price),
+                lastUpdateId,
+            };
         },
 
-        parseCandlestick(
-            data: KlineStreamDataBinance,
-            setCandles: React.Dispatch<React.SetStateAction<Candle[]>>
-        ) {
+        parseCandlestick(data: KlineStreamDataBinance, candles: Candle[]): Candle[] {
             const k = data.k;
             const newCandle: Candle = {
                 time: Math.floor(k.t / 1000),
@@ -72,7 +69,7 @@ export function BinanceParser() {
                 low: parseFloat(k.l),
                 close: parseFloat(k.c),
             };
-            setCandles(prev => [...prev.slice(-50), newCandle]);
+            return [...candles.slice(-50), newCandle];
         },
     };
 }
