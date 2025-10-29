@@ -1,4 +1,4 @@
-import type { Candle, OrderBook, OrderBookBybitData } from "@/utils/types.ts";
+import type { Candle, OrderBookTypes, OrderBookBybitData } from "../utils/types.ts";
 import React from "react";
 
 export function createBybitSubscribeMessage(topics: string[]) {
@@ -16,46 +16,94 @@ export function createBybitUnsubscribeMessage(topics: string[]) {
 }
 
 export function BybitParser() {
-    const bidsMap = new Map<number, OrderBook>();
-    const asksMap = new Map<number, OrderBook>();
-    let lastSeq: number | null = null;
-
+    const bidsMap = new Map<number, OrderBookTypes>();
+    const asksMap = new Map<number, OrderBookTypes>();
     return {
         parseOrderBook(
             data: OrderBookBybitData,
-            setBids: (b: OrderBook[]) => void,
-            setAsks: (a: OrderBook[]) => void
+            type: 'snapshot' | 'delta',
+            setBids: (b: OrderBookTypes[]) => void,
+            setAsks: (a: OrderBookTypes[]) => void
         ) {
-            if (!data.b || !data.a || data.u === undefined) return;
-
-            if (lastSeq === null) lastSeq = data.seq;
-            if (data.seq <= (lastSeq ?? 0)) return;
-
-            if (data.seq > (lastSeq ?? 0) + 1) {
-                bidsMap.clear();
-                asksMap.clear();
-                lastSeq = data.seq;
+            if (!data.b || !data.a) {
+                console.warn('BybitParser: данные стакана отсутствуют', data);
                 return;
             }
 
-            data.b.forEach((amountStr, priceStr) => {
-                const price = parseFloat(priceStr);
-                const amount = parseFloat(amountStr);
-                if (amount === 0) bidsMap.delete(price);
-                else bidsMap.set(price, { price, amount, total: price * amount });
-            });
+            const newBids: OrderBookTypes[] = [];
+            const newAsks: OrderBookTypes[] = [];
 
-            data.a.forEach((amountStr, priceStr) => {
-                const price = parseFloat(priceStr);
-                const amount = parseFloat(amountStr);
-                if (amount === 0) asksMap.delete(price);
-                else asksMap.set(price, { price, amount, total: price * amount });
-            });
+            if (type === 'snapshot') {
+                if (Array.isArray(data.b)) {
+                    data.b.forEach(([priceStr, amountStr]) => {
+                    const price = parseFloat(priceStr);
+                    const amount = parseFloat(amountStr);
+                    if (isNaN(price) || isNaN(amount)) {
+                        console.warn('BybitParser: некорректные данные bid:', priceStr, amountStr);
+                        return;
+                    }
+                    newBids.push({ price, amount, total: price * amount });
+                    });
+                }
 
-            lastSeq = data.seq;
+                if (Array.isArray(data.a)) {
+                    data.a.forEach(([priceStr, amountStr]) => {
+                    const price = parseFloat(priceStr);
+                    const amount = parseFloat(amountStr);
+                    if (isNaN(price) || isNaN(amount)) {
+                        console.warn('BybitParser: некорректные данные ask:', priceStr, amountStr);
+                        return;
+                    }
+                    newAsks.push({ price, amount, total: price * amount });
+                    });
+                }
 
-            setBids(Array.from(bidsMap.values()).sort((a, b) => b.price - a.price));
-            setAsks(Array.from(asksMap.values()).sort((a, b) => a.price - b.price));
+                setBids(newBids);
+                setAsks(newAsks);
+            } else if (type === 'delta') {
+                // Частичное обновление (delta)
+                if (Array.isArray(data.b)) {
+                    data.b.forEach(([priceStr, amountStr]) => {
+                        const price = parseFloat(priceStr);
+                        const amount = parseFloat(amountStr);
+                        if (isNaN(price) || isNaN(amount)) {
+                            console.warn('BybitParser: некорректные данные bid delta:', priceStr, amountStr);
+                            return;
+                        }
+
+                        if (amount === 0) {
+                            // Удаляем цену из bids
+                            bidsMap.delete(price);
+                        } else {
+                            // Обновляем или добавляем цену
+                            bidsMap.set(price, { price, amount, total: price * amount });
+                        }
+                    });
+                }
+
+                if (Array.isArray(data.a)) {
+                    data.a.forEach(([priceStr, amountStr]) => {
+                        const price = parseFloat(priceStr);
+                        const amount = parseFloat(amountStr);
+                        if (isNaN(price) || isNaN(amount)) {
+                            console.warn('BybitParser: некорректные данные ask delta:', priceStr, amountStr);
+                            return;
+                        }
+
+                        if (amount === 0) {
+                            // Удаляем цену из asks
+                            asksMap.delete(price);
+                        } else {
+                            // Обновляем или добавляем цену
+                            asksMap.set(price, { price, amount, total: price * amount });
+                        }
+                    });
+                }
+
+                // Возвращаем текущие значения из Map
+                setBids(Array.from(bidsMap.values()).sort((a, b) => b.price - a.price));
+                setAsks(Array.from(asksMap.values()).sort((a, b) => a.price - b.price));
+            }
         },
 
         parseCandlestick(

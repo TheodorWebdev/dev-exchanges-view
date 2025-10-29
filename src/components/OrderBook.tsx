@@ -45,6 +45,7 @@ export default function OrderBook() {
 
 	useEffect(() => {
 		const updateHandler = ({ bids, asks }: { bids: OrderBookTypes[]; asks: OrderBookTypes[] }) => {
+			console.log('OrderBook: получил обновление:', { bids, asks });
 			setBids(bids.slice(0, 50));
 			setAsks(asks.slice(0, 50));
 		};

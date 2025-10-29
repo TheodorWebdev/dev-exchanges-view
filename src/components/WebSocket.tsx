@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { eventEmitter, EVENTS } from '../utils/events';
 import { BinanceParser, createBinanceSubscribeMessage } from '../exchanges/binance';
-import type { Candle, KlineStreamDataBinance, OrderBookBinanceData } from '../utils/types';
+import { BybitParser } from '../exchanges/bybit';
+import type { Candle, OrderBookTypes } from '../utils/types';
 import { createBybitSubscribeMessage } from '../exchanges/bybit'
 
 export default function WebSocketComponent() {
@@ -11,7 +12,7 @@ export default function WebSocketComponent() {
 	const intervalRef = useRef<number | null>(null);
 	const bidsMapRef = useRef<Map<number, { price: number; amount: number; total: number }>>(new Map());
 	const asksMapRef = useRef<Map<number, { price: number; amount: number; total: number }>>(new Map());
-	const parserRef = useRef(BinanceParser());
+	const parserRef = useRef(BybitParser());
 
 	// Подписка на события смены вебсокет соединения
 	useEffect(() => {
@@ -27,7 +28,7 @@ export default function WebSocketComponent() {
 			candlestickDataRef.current = [];
 			bidsMapRef.current.clear();
 			asksMapRef.current.clear();
-			parserRef.current = BinanceParser();
+			parserRef.current = BybitParser();
 
 			const ws = new WebSocket(wsUrl);
 		
@@ -48,55 +49,27 @@ export default function WebSocketComponent() {
 			};
 
 			ws.onmessage = (event) => {
-				console.log(event.data);
 				const data = JSON.parse(event.data);
-				
-				// Обработка сообщений от Binance через BinanceParser
-				if (data.stream) {
-					const streamData = data.data;
-					
-					// Обработка candlestick data через BinanceParser
-					if (streamData.k) {
-						const klineData: KlineStreamDataBinance = {
-							e: streamData.e,
-							E: streamData.E,
-							s: streamData.s,
-							k: streamData.k
-						};
-						
-						parserRef.current.parseCandlestick(klineData, (newCandles) => {
-							if (typeof newCandles === 'function') {
-								// Если это функция (prev => new), вызываем с текущим массивом
-								candlestickDataRef.current = newCandles(candlestickDataRef.current);
-							} else {
-								// Если это массив
-								candlestickDataRef.current = newCandles;
-							}
-						});
-					}
-					
-					// Обработка order book data через BinanceParser
-					if (streamData.b && streamData.a) {
-						const orderBookData: OrderBookBinanceData = {
-							e: streamData.e,
-							E: streamData.E,
-							s: streamData.s,
-							U: streamData.U,
-							u: streamData.u,
-							b: streamData.b,
-							a: streamData.a,
-						};
-						
+
+				// Обработка данных от Bybit
+				if (exchange === 'BYBIT') {
+					if (data.topic && data.data && Array.isArray(data.data.b) && Array.isArray(data.data.a)) {
+						// Вызываем парсер Bybit
 						parserRef.current.parseOrderBook(
-							orderBookData,
-							(bids) => {
+							data.data,
+							data.type,
+							(bids: OrderBookTypes[]) => {
 								bidsMapRef.current = new Map(bids.map(item => [item.price, item]));
 							},
-							(asks) => {
+							(asks: OrderBookTypes[]) => {
 								asksMapRef.current = new Map(asks.map(item => [item.price, item]));
 							}
 						);
 					}
+				}
+				// Обработка данных от Binance — ваш текущий код
+				else {
+				// ваш текущий код для Binance
 				}
 			};
 
@@ -130,6 +103,7 @@ export default function WebSocketComponent() {
 	// Периодическая отправка событий с определённым интервалом
 	useEffect(() => {
 		const updateInterval = 500; // 500 миллисекунд
+		console.log('WebSocket: useEffect с интервалом запущен');
 
 		intervalRef.current = setInterval(() => {
 			// Инициализация событий: candlestick data
@@ -142,6 +116,7 @@ export default function WebSocketComponent() {
 			const asks = Array.from(asksMapRef.current.values()).sort((a, b) => a.price - b.price);
 			
 			if (bids.length > 0 || asks.length > 0) {
+				console.log('WebSocket: отправляем обновление стакана:', { bids, asks });
 				eventEmitter.emit(EVENTS.ORDERBOOK_UPDATE, { bids, asks });
 			}
 		}, updateInterval);
