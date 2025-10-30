@@ -67,8 +67,6 @@ export default function WebSocketComponent() {
 			ws.onmessage = async (event) => {
 				const msg = JSON.parse(event.data);
 
-				console.log(msg);
-
 				switch (exchange) {
 					case "BYBIT": {
 						if (msg.data && Array.isArray(msg.data.b) && Array.isArray(msg.data.a)) {
@@ -104,10 +102,14 @@ export default function WebSocketComponent() {
 								asksMapRef.current.clear();
 
 								for (const b of parsed.bids) {
-									bidsMapRef.current.set(b.price, { price: b.price, amount: b.amount, total: b.total });
+									if (b.amount > 0) {
+										bidsMapRef.current.set(b.price, { price: b.price, amount: b.amount, total: b.total });
+									}
 								}
 								for (const a of parsed.asks) {
-									asksMapRef.current.set(a.price, { price: a.price, amount: a.amount, total: a.total });
+									if (a.amount > 0) {
+										asksMapRef.current.set(a.price, { price: a.price, amount: a.amount, total: a.total });
+									}
 								}
 
 								lastUpdateId.current = msg.lastUpdateId ?? msg.u;
@@ -122,12 +124,21 @@ export default function WebSocketComponent() {
 								return;
 							}
 
-							parsed.bids.forEach(({ price, amount, total }) =>
-								bidsMapRef.current.set(price, { price, amount, total })
-							);
-							parsed.asks.forEach(({ price, amount, total }) =>
-								asksMapRef.current.set(price, { price, amount, total })
-							);
+							parsed.bids.forEach(({ price, amount, total }) => {
+								if (amount > 0) {
+									bidsMapRef.current.set(price, { price, amount, total });
+								} else {
+									bidsMapRef.current.delete(price);
+								}
+							});
+
+							parsed.asks.forEach(({ price, amount, total }) => {
+								if (amount > 0) {
+									asksMapRef.current.set(price, { price, amount, total });
+								} else {
+									asksMapRef.current.delete(price);
+								}
+							});
 
 							lastUpdateId.current = msg.u;
 						}
