@@ -45,14 +45,15 @@ export default function WebSocketComponent() {
 
 			const ws = new WebSocket(wsUrl);
 
-			ws.onopen = () => {
+			ws.onopen = async () => {
 				console.log("[WS] Cоединение создано");
 				switch (exchange) {
 					case "BINANCE": {
 						const parser = parserRef.current as BinanceSocketParser;
-
-						parser.ob_sub_msg(topics[0]).then(msg => ws.send(msg));
-						parser.ob_sub_msg(topics[1]).then(msg => ws.send(msg));
+						for (const topic of topics) {
+							const msg = await parser.ob_sub_msg(topic);
+							ws.send(msg);
+						}
 						break;
 					}
 					case "BYBIT": {
@@ -63,7 +64,7 @@ export default function WebSocketComponent() {
 				}
 			};
 
-			ws.onmessage = (event) => {
+			ws.onmessage = async (event) => {
 				const msg = JSON.parse(event.data);
 
 				switch (exchange) {
@@ -88,34 +89,56 @@ export default function WebSocketComponent() {
 					}
 					case "BINANCE": {
 						// Если пришёл первый снапшот через lastUpdateId
-						if (msg.lastUpdateId) {
-							const { bids, asks } = parserRef.current.parseOrderBook(msg);
+						if (msg.lastUpdateId || msg.U !== undefined) {
+							const parser = parserRef.current as BinanceSocketParser;
+							const parsed = await parser.ob_parse(ws, event);
+							if (!parsed) return;
 
-							bids.forEach(([price, amount]: [number, number]) => {
-								bidsMapRef.current.set(price, { price, amount, total: price * amount });
-							});
+							console.log(parsed);
 
-							asks.forEach(([price, amount]: [number, number]) => {
-								asksMapRef.current.set(price, { price, amount, total: price * amount });
-							});
+							// snapshot
+							if (parsed.type === "snapshot") {
+								bidsMapRef.current.clear();
+								asksMapRef.current.clear();
 
-							lastUpdateId.current = msg.lastUpdateId;
-							return;
-						}
+								for (const b of parsed.bids) {
+									if (b.amount > 0) {
+										bidsMapRef.current.set(b.price, { price: b.price, amount: b.amount, total: b.total });
+									}
+								}
+								for (const a of parsed.asks) {
+									if (a.amount > 0) {
+										asksMapRef.current.set(a.price, { price: a.price, amount: a.amount, total: a.total });
+									}
+								}
 
-						// Если пришла дельта
-						if (msg.U !== undefined && msg.u !== undefined && msg.b && msg.a) {
-							// Пропущенные обновления
-							if (msg.U > lastUpdateId.current! + 1) {
+								lastUpdateId.current = msg.lastUpdateId ?? msg.u;
+							}
+
+
+							// delta
+							if (msg.U > (lastUpdateId.current ?? 0) + 1) {
 								bidsMapRef.current.clear();
 								asksMapRef.current.clear();
 								lastUpdateId.current = msg.u;
 								return;
 							}
 
-							// Применяем дельту
-							updateOrderBookLevels(bidsMapRef.current, msg.b);
-							updateOrderBookLevels(asksMapRef.current, msg.a);
+							parsed.bids.forEach(({ price, amount, total }) => {
+								if (amount > 0) {
+									bidsMapRef.current.set(price, { price, amount, total });
+								} else {
+									bidsMapRef.current.delete(price);
+								}
+							});
+
+							parsed.asks.forEach(({ price, amount, total }) => {
+								if (amount > 0) {
+									asksMapRef.current.set(price, { price, amount, total });
+								} else {
+									asksMapRef.current.delete(price);
+								}
+							});
 
 							lastUpdateId.current = msg.u;
 						}
