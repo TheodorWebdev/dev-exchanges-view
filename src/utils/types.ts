@@ -14,9 +14,8 @@ export interface Candle {
 
 export interface OrderBookBybitData {
     s: string;
-    type: 'snapshot' | 'delta';
-    b: Map<string, string>;
-    a: Map<string, string>;
+    b: [string, string][];
+    a: [string, string][];
     u: number;
     seq: number;
 }

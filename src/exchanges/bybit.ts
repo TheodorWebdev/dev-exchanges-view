@@ -1,4 +1,4 @@
-import type { Candle, OrderBookTypes, OrderBookBybitData } from "../utils/types.ts";
+import type { Candle, OrderBookBybitData } from "@/utils/types.ts";
 
 export function createBybitSubscribeMessage(topics: string[]) {
     return JSON.stringify({
@@ -18,91 +18,29 @@ export function BybitParser() {
     return {
         parseOrderBook(
             data: OrderBookBybitData,
-            type: 'snapshot' | 'delta',
-            bidsMap: Map<number, OrderBookTypes>,
-            asksMap: Map<number, OrderBookTypes>,
-            setBids: (b: OrderBookTypes[]) => void,
-            setAsks: (a: OrderBookTypes[]) => void
-        ) {
-            if (!data.b || !data.a) {
-                console.warn('BybitParser: данные стакана отсутствуют', data);
-                return;
-            }
+        ): {
+            bids: [number, number][],
+            asks: [number, number][],
+        } {
+            const bids: [number, number][] = data.b.map(([priceStr, amountStr]) => {
+                const price = Number(priceStr);
+                const amount = Number(amountStr);
 
-            const newBids: OrderBookTypes[] = [];
-            const newAsks: OrderBookTypes[] = [];
+                if (isNaN(price) || isNaN(amount)) return [0, 0];
 
-            if (type === 'snapshot') {
-                if (Array.isArray(data.b)) {
-                    data.b.forEach(([priceStr, amountStr]) => {
-                    const price = parseFloat(priceStr);
-                    const amount = parseFloat(amountStr);
-                    if (isNaN(price) || isNaN(amount)) {
-                        console.warn('BybitParser: некорректные данные bid:', priceStr, amountStr);
-                        return;
-                    }
-                    newBids.push({ price, amount, total: price * amount });
-                    });
-                }
+                return [price, amount];
+            });
 
-                if (Array.isArray(data.a)) {
-                    data.a.forEach(([priceStr, amountStr]) => {
-                    const price = parseFloat(priceStr);
-                    const amount = parseFloat(amountStr);
-                    if (isNaN(price) || isNaN(amount)) {
-                        console.warn('BybitParser: некорректные данные ask:', priceStr, amountStr);
-                        return;
-                    }
-                    newAsks.push({ price, amount, total: price * amount });
-                    });
-                }
+            const asks: [number, number][] = data.a.map(([priceStr, amountStr]) => {
+                const price = Number(priceStr);
+                const amount = Number(amountStr);
 
-                setBids(newBids);
-                setAsks(newAsks);
-            } else if (type === 'delta') {
-                // Частичное обновление (delta)
-                if (Array.isArray(data.b)) {
-                    data.b.forEach(([priceStr, amountStr]) => {
-                        const price = parseFloat(priceStr);
-                        const amount = parseFloat(amountStr);
-                        if (isNaN(price) || isNaN(amount)) {
-                            console.warn('BybitParser: некорректные данные bid delta:', priceStr, amountStr);
-                            return;
-                        }
+                if (isNaN(price) || isNaN(amount)) return [0, 0];
 
-                        if (amount === 0) {
-                            // Удаляем цену из bids
-                            bidsMap.delete(price);
-                        } else {
-                            // Обновляем или добавляем цену
-                            bidsMap.set(price, { price, amount, total: price * amount });
-                        }
-                    });
-                }
+                return [price, amount];
+            });
 
-                if (Array.isArray(data.a)) {
-                    data.a.forEach(([priceStr, amountStr]) => {
-                        const price = parseFloat(priceStr);
-                        const amount = parseFloat(amountStr);
-                        if (isNaN(price) || isNaN(amount)) {
-                            console.warn('BybitParser: некорректные данные ask delta:', priceStr, amountStr);
-                            return;
-                        }
-
-                        if (amount === 0) {
-                            // Удаляем цену из asks
-                            asksMap.delete(price);
-                        } else {
-                            // Обновляем или добавляем цену
-                            asksMap.set(price, { price, amount, total: price * amount });
-                        }
-                    });
-                }
-
-                // Возвращаем текущие значения из Map
-                setBids(Array.from(bidsMap.values()).sort((a, b) => a.price - b.price));
-                setAsks(Array.from(asksMap.values()).sort((a, b) => a.price - b.price));
-            }
+            return { bids, asks };
         },
 
         parseCandlestick(

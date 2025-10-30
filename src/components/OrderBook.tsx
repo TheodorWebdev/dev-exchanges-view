@@ -1,8 +1,8 @@
-import { useRef, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 
-import { HStack, Card, Heading, Box, Separator } from '@chakra-ui/react';
-import type {OrderBookTypes} from "../utils/types.ts";
-import {eventEmitter, EVENTS} from "../utils/events.ts";
+import { HStack, Card, Heading, Box, Separator, Flex } from '@chakra-ui/react';
+import type {OrderBookTypes} from "@/utils/types.ts";
+import {eventEmitter, EVENTS} from "@/utils/events.ts";
 
 // interface OrderBook {
 // 	b: Array<[string, string]>,
@@ -16,32 +16,8 @@ import {eventEmitter, EVENTS} from "../utils/events.ts";
 // };
 
 export default function OrderBook() {
-	const bidsRef = useRef<HTMLDivElement>(null);
-	const [ isUserScroll, setIsUserScroll ] = useState(false);
-
 	const [bids, setBids] = useState<OrderBookTypes[]>([]);
 	const [asks, setAsks] = useState<OrderBookTypes[]>([]);
-
-	const handleScroll = () => {
-		const container = bidsRef.current;
-		if (!container) return;
-
-		const isScrolledToBottom = (container.scrollHeight - container.scrollTop) <= (container.clientHeight + 1);
-
-		if (!isScrolledToBottom) {
-		setIsUserScroll(true);
-		} else {
-		setIsUserScroll(false);
-		}
-	};
-
-	useEffect(() => {
-		const container = bidsRef.current;
-		if (!container || isUserScroll) return;
-
-		container.scrollTop = container.scrollHeight - container.clientHeight;
-
-	}, [isUserScroll]);
 
 	useEffect(() => {
 		const updateHandler = ({ bids, asks }: { bids: OrderBookTypes[]; asks: OrderBookTypes[] }) => {
@@ -70,44 +46,27 @@ export default function OrderBook() {
 				</HStack>
 			</Card.Header>
 			<Card.Body overflowY="hidden">
-				<Box ref={bidsRef} onScroll={handleScroll} w="100%" flex="1" overflowY="auto">
-					<HStack fontWeight="700" w="100%" justifyContent="space-between" alignItems="flex-start">
-						<Box w="100%">
-							{bids.map(({ price, amount, total }, i) => (
-								<Box display="flex" flexDirection="column" key={i}>
-									<HStack justifyContent="space-between">
-										<Box color="red.600" w="30%">{price.toFixed(2)}</Box>
-										<Box color="gray.400" w="30%">{amount.toFixed(3)}</Box>
-										<Box color="orange.200" w="30%">{total.toFixed(2)}</Box>
-									</HStack>
-								</Box>
-							))}
-						</Box>
-					</HStack>
-				</Box>
+				<Flex w="100%" h="45%" flexDirection="column-reverse" overflowY="scroll">
+					{bids.map(({ price, amount, total }, i) => (
+						<HStack key={i} justifyContent="space-between">
+							<Box color="red.600" w="30%">{price.toFixed(2)}</Box>
+							<Box color="gray.400" w="30%">{amount.toFixed(3)}</Box>
+							<Box color="orange.200" w="30%">{total.toFixed(2)}</Box>
+						</HStack>
+					))}
+				</Flex>
 
 				<Separator mt="4" mb="4" size="md" />
 
-				<Box w="100%" flex="1" overflowY="auto">
-					<HStack
-						fontWeight="700"
-						w="100%"
-						justifyContent="space-between"
-						alignItems="flex-start"
-					>
-						<Box w="100%">
-							{asks.map(({ price, amount, total }, i) => (
-								<Box display="flex" flexDirection="column" key={i}>
-									<HStack justifyContent="space-between">
-										<Box color="green.600" w="30%">{price.toFixed(2)}</Box>
-										<Box color="gray.400" w="30%">{amount.toFixed(3)}</Box>
-										<Box color="orange.200" w="30%">{total.toFixed(2)}</Box>
-									</HStack>
-								</Box>
-							))}
-						</Box>
-					</HStack>
-				</Box>
+				<Flex w="100%" h="45%" flexDirection="column" overflowY="scroll">
+					{asks.map(({ price, amount, total }, i) => (
+						<HStack key={i} justifyContent="space-between">
+							<Box color="green.600" w="30%">{price.toFixed(2)}</Box>
+							<Box color="gray.400" w="30%">{amount.toFixed(3)}</Box>
+							<Box color="orange.200" w="30%">{total.toFixed(2)}</Box>
+						</HStack>
+					))}
+				</Flex>
 			</Card.Body>
 		</Card.Root>
 	);

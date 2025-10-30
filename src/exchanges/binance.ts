@@ -4,7 +4,7 @@ import type {
     OrderBookBinanceData,
     OrderBookTypes
 } from "@/utils/types.ts";
-import { updateOrderBookLevels } from "../utils/helpersFunctions.ts";
+import { updateOrderBookLevels } from "@/utils/helpersFunctions.ts";
 
 export function createBinanceSubscribeMessage(topics: string[]) {
     return JSON.stringify({

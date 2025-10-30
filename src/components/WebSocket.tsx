@@ -1,9 +1,9 @@
 import { useEffect, useRef } from 'react';
-import { eventEmitter, EVENTS } from '../utils/events';
-import { BinanceParser, createBinanceSubscribeMessage } from '../exchanges/binance';
-import { BybitParser } from '../exchanges/bybit';
-import type { Candle, OrderBookTypes } from '../utils/types';
-import { createBybitSubscribeMessage } from '../exchanges/bybit';
+import { eventEmitter, EVENTS } from '@/utils/events';
+import { BinanceParser, createBinanceSubscribeMessage } from '@/exchanges/binance';
+import { BybitParser } from '@/exchanges/bybit';
+import type { Candle } from '@/utils/types';
+import { createBybitSubscribeMessage } from '@/exchanges/bybit';
 
 export default function WebSocketComponent() {
 	// Реактивное состояние через useRef
@@ -59,29 +59,45 @@ export default function WebSocketComponent() {
 			};
 
 			ws.onmessage = (event) => {
-				const data = JSON.parse(event.data);
+				const msg = JSON.parse(event.data);
 
-				// Обработка данных от Bybit
-				if (exchange === 'BYBIT') {
-					if (data.topic && data.data && Array.isArray(data.data.b) && Array.isArray(data.data.a)) {
-						// Вызываем парсер Bybit
-						parserRef.current.parseOrderBook(
-							data.data,
-							data.type,
-							bidsMapRef.current,
-							asksMapRef.current,
-							(bids: OrderBookTypes[]) => {
-								bidsMapRef.current = new Map(bids.map(item => [item.price, item]));
-							},
-							(asks: OrderBookTypes[]) => {
-								asksMapRef.current = new Map(asks.map(item => [item.price, item]));
+				switch (exchange) {
+					case "BYBIT": {
+						if (msg.data && Array.isArray(msg.data.b) && Array.isArray(msg.data.a)) {
+							const { bids, asks } = parserRef.current.parseOrderBook(msg.data);
+
+							if (msg.type === "snapshot") {
+								bids.forEach(([price, amount]: [number, number]) => {
+									bidsMapRef.current.set(price, { price, amount, total: price * amount });
+								});
+
+								asks.forEach(([price, amount]: [number, number]) => {
+									asksMapRef.current.set(price, { price, amount, total: price * amount })
+								});
+							} else if (msg.type === "delta") {
+								bids.forEach(([price, amount]: [number, number]) => {
+									if (amount === 0) {
+										bidsMapRef.current.delete(price);
+									} else {
+										bidsMapRef.current.set(price, { price, amount, total: price * amount });
+									}
+								});
+
+								asks.forEach(([price, amount]: [number, number]) => {
+									if (amount === 0) {
+										asksMapRef.current.delete(price);
+									} else {
+										asksMapRef.current.set(price, { price, amount, total: price * amount });
+									}
+								});
 							}
-						);
+						}
+						break;	
 					}
-				}
-				// Обработка данных от Binance — ваш текущий код
-				else {
-				// ваш текущий код для Binance
+					case "BINANCE": {
+						// Нелля
+						break;
+					}
 				}
 			};
 
@@ -114,14 +130,16 @@ export default function WebSocketComponent() {
 
 	// Периодическая отправка событий с определённым интервалом
 	useEffect(() => {
-		const updateInterval = 500; // 500 миллисекунд
+		const updateInterval = 500;
 
 		intervalRef.current = setInterval(() => {
 			// Инициализация событий: candlestick data
 			if (candlestickDataRef.current.length > 0) {
 				eventEmitter.emit(EVENTS.CANDLES_UPDATE, [...candlestickDataRef.current]);
 			}
+		}, updateInterval);
 
+		intervalRef.current = setInterval(() => {
 			// Инициализация событий: order book
 			const bids = Array.from(bidsMapRef.current.values()).sort((a, b) => b.price - a.price);
 			const asks = Array.from(asksMapRef.current.values()).sort((a, b) => a.price - b.price);

@@ -1,10 +1,10 @@
-import { Provider } from './components/ui/provider';
+import { Provider } from '@/components/ui/provider';
 import { HStack, VStack, Box } from '@chakra-ui/react';
 
-import TradingChart from './components/TradingChart';
-import OrderBook from './components/OrderBook';
-import Controller from "./components/Controller.tsx";
-import WebSocketComponent from './components/WebSocket.tsx'
+import TradingChart from '@/components/TradingChart';
+import OrderBook from '@/components/OrderBook';
+import Controller from "@/components/Controller.tsx";
+import WebSocketComponent from '@/components/WebSocket.tsx'
 
 function App() {
     return (

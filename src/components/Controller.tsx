@@ -1,10 +1,10 @@
-import GenericSelector from "./GenericSelector.tsx";
+import GenericSelector from "@/components/GenericSelector.tsx";
 import {HStack} from "@chakra-ui/react";
-import { PAIRS } from '../utils/pairs';
-import {INTERVAL_1M, INTERVAL_5M, INTERVAL_15M, INTERVAL_1H, INTERVAL_1D, SOCKET_URLS} from '../utils/exchanges';
+import { PAIRS } from '@/utils/pairs';
+import {INTERVAL_1M, INTERVAL_5M, INTERVAL_15M, INTERVAL_1H, INTERVAL_1D, SOCKET_URLS} from '@/utils/exchanges';
 
 import { useState, useEffect } from 'react';
-import { eventEmitter, EVENTS } from '../utils/events';
+import { eventEmitter, EVENTS } from '@/utils/events';
 
 const Controller = () => {	
     const exchanges = ["BINANCE", "BYBIT"];
