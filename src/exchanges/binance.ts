@@ -4,13 +4,12 @@ import type {
     OrderBookBinanceData,
     OrderBookTypes
 } from "@/utils/types.ts";
-import { updateOrderBookLevels } from "@/utils/helpersFunctions.ts";
 
 export function createBinanceSubscribeMessage(topics: string[]) {
     return JSON.stringify({
         method: "SUBSCRIBE",
         params: topics,
-        id: 1,
+        id: Date.now(),
     });
 }
 
@@ -18,45 +17,37 @@ export function createBinanceUnsubscribeMessage(topics: string[]) {
     return JSON.stringify({
         method: "UNSUBSCRIBE",
         params: topics,
-        id: 1,
+        id: Date.now(),
     });
 }
 
 export function BinanceParser() {
     return {
-        parseOrderBook(
-            data: OrderBookBinanceData,
-            bidsMap: Map<number, OrderBookTypes>,
-            asksMap: Map<number, OrderBookTypes>,
-            lastUpdateId: number | null
-        ): {
+        parseOrderBook(data: OrderBookBinanceData): {
+            type: "snapshot",
             bids: OrderBookTypes[];
             asks: OrderBookTypes[];
-            lastUpdateId: number | null;
         } {
-            if (!data.a || !data.b || data.u === undefined || data.U === undefined)
-                return { bids: [], asks: [], lastUpdateId };
-
-            if (lastUpdateId === null) lastUpdateId = data.u;
-            if (data.u < lastUpdateId) return { bids: [], asks: [], lastUpdateId };
-
-            if (data.U > lastUpdateId + 1) {
-                bidsMap.clear();
-                asksMap.clear();
-                lastUpdateId = data.u;
-                return { bids: [], asks: [], lastUpdateId };
+            if (!data.a || !data.b) {
+                return {type: "snapshot", bids: [], asks: [] };
             }
 
-            // общ функц
-            const updatedAsks = updateOrderBookLevels(asksMap, data.a);
-            const updatedBids = updateOrderBookLevels(bidsMap, data.b);
+            console.log(data);
 
-            lastUpdateId = data.u;
+            const parse = (entries: [string, string][]): OrderBookTypes[] => {
+                return entries.map(([priceStr, amountStr]) => {
+                    const price = parseFloat(priceStr);
+                    const amount = parseFloat(amountStr);
+                    const total = price * amount;
+
+                    return { price, amount, total };
+                });
+            };
 
             return {
-                bids: Array.from(updatedBids.values()).sort((a, b) => b.price - a.price),
-                asks: Array.from(updatedAsks.values()).sort((a, b) => a.price - b.price),
-                lastUpdateId,
+                type: "snapshot",
+                bids: parse(data.b).sort((a, b) => b.price - a.price),
+                asks: parse(data.a).sort((a, b) => a.price - b.price),
             };
         },
 
@@ -69,6 +60,7 @@ export function BinanceParser() {
                 low: parseFloat(k.l),
                 close: parseFloat(k.c),
             };
+
             return [...candles.slice(-50), newCandle];
         },
     };
