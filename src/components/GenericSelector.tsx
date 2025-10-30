@@ -1,5 +1,5 @@
 import { NativeSelect } from "@chakra-ui/react";
-import type {ChangeEvent} from "react";
+import type { ChangeEvent } from "react";
 
 interface Props<T extends string | number> {
     value: T;

@@ -1,10 +1,11 @@
-import GenericSelector from "@/components/GenericSelector.tsx";
-import {HStack} from "@chakra-ui/react";
-import { PAIRS } from '@/utils/pairs';
-import {INTERVAL_1M, INTERVAL_5M, INTERVAL_15M, INTERVAL_1H, INTERVAL_1D, SOCKET_URLS} from '@/utils/exchanges';
-
 import { useState, useEffect } from 'react';
+import { HStack } from "@chakra-ui/react";
+
+import GenericSelector from "@/components/GenericSelector.tsx";
+
+import { INTERVAL_1M, INTERVAL_5M, INTERVAL_15M, INTERVAL_1H, INTERVAL_1D, SOCKET_URLS } from '@/utils/exchanges';
 import { eventEmitter, EVENTS } from '@/utils/events';
+import { PAIRS } from '@/utils/pairs';
 
 const Controller = () => {	
     const exchanges = ["BINANCE", "BYBIT"];
@@ -24,7 +25,7 @@ const Controller = () => {
 
         setTimeout(() => {
             eventEmitter.emit(EVENTS.WEBSOCKET_CONNECTION_CHANGE, { wsUrl, topics, exchange });
-        }, 0);
+        }, 1000);
     }, [exchange, pair, interval]);
 
     return (

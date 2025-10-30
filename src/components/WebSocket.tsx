@@ -1,12 +1,12 @@
 import { useEffect, useRef } from 'react';
-import { eventEmitter, EVENTS } from '@/utils/events';
+
+import { BybitParser, createBybitSubscribeMessage } from '@/exchanges/bybit';
 import { BinanceParser, createBinanceSubscribeMessage } from '@/exchanges/binance';
-import { BybitParser } from '@/exchanges/bybit';
+
+import { eventEmitter, EVENTS } from '@/utils/events';
 import type { Candle } from '@/utils/types';
-import { createBybitSubscribeMessage } from '@/exchanges/bybit';
 
 export default function WebSocketComponent() {
-	// Реактивное состояние через useRef
 	const candlestickDataRef = useRef<Candle[]>([]);
 	const wsRef = useRef<WebSocket | null>(null);
 	const intervalRef = useRef<number | null>(null);
@@ -14,21 +14,22 @@ export default function WebSocketComponent() {
 	const asksMapRef = useRef<Map<number, { price: number; amount: number; total: number }>>(new Map());
 	const parserRef = useRef<any>(null);
 
-	// Подписка на события смены вебсокет соединения
-	useEffect(() => {
-		const handleConnectionChange = ({ wsUrl, topics, exchange }: { wsUrl: string, topics: string[], exchange: string } ) => {
-			if (wsRef.current) {
-				console.log('WebSocket: закрываем старое соединение');
-				wsRef.current.close();
-				wsRef.current = null;
-			}
-
-			console.log(exchange);
-
-			// Очистка данных при переключении
+	const clearConnect = () => {
+		if (wsRef.current) {
+			console.log('WebSocket: закрываем старое соединение');
+			wsRef.current.close();
+			wsRef.current = null;
 			candlestickDataRef.current = [];
 			bidsMapRef.current.clear();
 			asksMapRef.current.clear();
+		}
+	}
+
+	// Подписка на события смены вебсокет соединения
+	useEffect(() => {
+		const handleConnectionChange = ({ wsUrl, topics, exchange }: { wsUrl: string, topics: string[], exchange: string } ) => {
+			clearConnect();
+
 			switch (exchange) {
 				case "BINANCE": {
 					parserRef.current = BinanceParser();
