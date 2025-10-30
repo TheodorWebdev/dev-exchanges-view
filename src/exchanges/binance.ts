@@ -1,7 +1,6 @@
 import type {
     Candle,
     KlineStreamDataBinance,
-    OrderBookBinanceData,
     OrderBookTypes, ParsedOB
 } from "@/utils/types.ts";
 import {EXCHANGES, SOCKET_URLS} from "@/utils/exchanges.ts";
@@ -43,41 +42,27 @@ export class BinanceSocketParser {
         });
     };
 
-    private parseOrders(orders?: [string, string][]): OrderBookTypes[] {
-        if (!orders) return [];
-        return orders.map(([priceStr, amountStr]) => {
-            const price = parseFloat(priceStr);
-            const amount = parseFloat(amountStr);
-            return { price, amount, total: price * amount };
-        });
-    }
+    ob_parse = async (_ws: WebSocket, msg: MessageEvent<any>): Promise<ParsedOB | undefined> => {
+        const data = JSON.parse(msg.data);
 
-    ob_parse = async (_: WebSocket, msg: MessageEvent<any>): Promise<ParsedOB | undefined> => {
-        const parsedMsg: OrderBookBinanceData = JSON.parse(msg.data);
+        const parseOrders = (orders?: [string, string][]): OrderBookTypes[] =>
+            (orders ?? []).map(([p, a]) => {
+                const price = Number(p);
+                const amount = Number(a);
+                return { price, amount, total: price * amount };
+            });
+
+        const bidsRaw = data?.bids ?? data?.b;
+        const asksRaw = data?.asks ?? data?.a;
+
+        if (!bidsRaw && !asksRaw) return undefined;
+
         return {
             type: "snapshot",
-            bids: this.parseOrders(parsedMsg?.b),
-            asks: this.parseOrders(parsedMsg?.a)
+            bids: parseOrders(bidsRaw),
+            asks: parseOrders(asksRaw),
         };
     };
-
-    parseOrderBook(data: OrderBookBinanceData): { bids: [number, number][], asks: [number, number][] } {
-        const bids: [number, number][] = (data.b ?? []).map(([priceStr, amountStr]) => {
-            const price = Number(priceStr);
-            const amount = Number(amountStr);
-            if (isNaN(price) || isNaN(amount)) return [0, 0];
-            return [price, amount];
-        });
-
-        const asks: [number, number][] = (data.a ?? []).map(([priceStr, amountStr]) => {
-            const price = Number(priceStr);
-            const amount = Number(amountStr);
-            if (isNaN(price) || isNaN(amount)) return [0, 0];
-            return [price, amount];
-        });
-
-        return { bids, asks };
-    }
 
     parseCandlestick(data: KlineStreamDataBinance, candles: Candle[]): Candle[] {
         const k = data.k;
