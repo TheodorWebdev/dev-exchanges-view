@@ -6,6 +6,7 @@ import { BinanceSocketParser } from '@/exchanges/binance';
 import { eventEmitter, EVENTS } from '@/utils/events';
 import type {Candle} from '@/utils/types';
 import {updateOrderBookLevels} from "@/utils/helpersFunctions.ts";
+import {ProbitSocketParser} from "@/exchanges/probit.ts";
 
 export default function WebSocketComponent() {
 	const candlestickDataRef = useRef<Candle[]>([]);
@@ -40,6 +41,9 @@ export default function WebSocketComponent() {
 				case "BYBIT": {
 					parserRef.current = BybitParser();
 					break;
+				}
+				case "PROBIT": {
+					parserRef.current = new ProbitSocketParser();
 				}
 			}
 

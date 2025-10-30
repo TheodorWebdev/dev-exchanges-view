@@ -7,9 +7,11 @@ export const INTERVAL_1D = '1d';
 export const EXCHANGES = {
     BINANCE: 'BINANCE',
     BYBIT: 'BYBIT',
+    PROBIT: 'PROBIT',
 };
 
 export const SOCKET_URLS = {
     BINANCE: 'wss://stream.binance.com:9443/ws',
     BYBIT: 'wss://stream.bybit.com/v5/public/spot',
+    PROBIT: 'wss://demo-api.probit.com/api/exchange/v1/ws',
 };

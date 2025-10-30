@@ -3,16 +3,24 @@ import { HStack } from "@chakra-ui/react";
 
 import GenericSelector from "@/components/GenericSelector.tsx";
 
-import { INTERVAL_1M, INTERVAL_5M, INTERVAL_15M, INTERVAL_1H, INTERVAL_1D, SOCKET_URLS } from '@/utils/exchanges';
+import {
+    INTERVAL_1M,
+    INTERVAL_5M,
+    INTERVAL_15M,
+    INTERVAL_1H,
+    INTERVAL_1D,
+    SOCKET_URLS,
+    EXCHANGES
+} from '@/utils/exchanges';
 import { eventEmitter, EVENTS } from '@/utils/events';
 import { PAIRS } from '@/utils/pairs';
 
-const Controller = () => {	
-    const exchanges = ["BINANCE", "BYBIT"];
+const Controller = () => {
+    const exchanges = [EXCHANGES.BINANCE, EXCHANGES.BYBIT, EXCHANGES.PROBIT];
     const pairs = PAIRS.map(p => p.symbol);
     const intervals = [INTERVAL_1M, INTERVAL_5M, INTERVAL_15M, INTERVAL_1H, INTERVAL_1D];
 
-	const [exchange, setExchange] = useState<string>("BINANCE");
+    const [exchange, setExchange] = useState<string>(EXCHANGES.BINANCE);
 	const [pair, setPair] = useState<string>("BTCUSDT");
 	const [interval, setInterval] = useState<string>("1m");
 
