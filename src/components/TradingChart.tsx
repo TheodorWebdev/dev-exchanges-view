@@ -3,24 +3,10 @@ import { useLayoutEffect, useRef, useState } from 'react';
 import { Card, Flex, HStack, Text, Box } from '@chakra-ui/react';
 
 import { CandlestickSeries, createChart, HistogramSeries } from 'lightweight-charts';
-import type { ISeriesApi, CandlestickData, HistogramData } from 'lightweight-charts';
+import type { ISeriesApi, CandlestickData, HistogramData, Time } from 'lightweight-charts';
 
-// mock (remove soon)
-const mockCandlestickData: CandlestickData[] = [
-  { time: '2025-10-20', open: 100, high: 110, low: 95, close: 105 },
-  { time: '2025-10-21', open: 105, high: 115, low: 100, close: 112 },
-  { time: '2025-10-22', open: 112, high: 118, low: 108, close: 116 },
-  { time: '2025-10-23', open: 116, high: 120, low: 110, close: 114 },
-  { time: '2025-10-24', open: 114, high: 117, low: 112, close: 115 },
-];
-
-const mockVolumeData: HistogramData[] = [
-  { time: '2025-10-20', value: 1200 },
-  { time: '2025-10-21', value: 1800 },
-  { time: '2025-10-22', value: 1500 },
-  { time: '2025-10-23', value: 1300 },
-  { time: '2025-10-24', value: 1600 },
-];
+import { eventEmitter, EVENTS } from '@/utils/events'
+import type { Candle } from '@/utils/types'
 
 type CandlestickSeries = ISeriesApi<'Candlestick'>;
 type VolumeSeries = ISeriesApi<'Histogram'>;
@@ -34,57 +20,68 @@ export default function TradingChart() {
 	useLayoutEffect(() => {
 		if (!chartContainerRef.current) return;
 		const chart = createChart(chartContainerRef.current, {
-		layout: {
-			background: { color: '#111' },
-			textColor: '#DDD',
-		},
-		grid: {
-			vertLines: { color: '#1e1e1e' },
-			horzLines: { color: '#1e1e1e' },
-		},
-		timeScale: { borderColor: '#333' },
-		rightPriceScale: { borderColor: '#333' },
+			layout: {
+				background: { color: '#111' },
+				textColor: '#DDD',
+			},
+			grid: {
+				vertLines: { color: '#1e1e1e' },
+				horzLines: { color: '#1e1e1e' },
+			},
+			timeScale: { borderColor: '#333' },
+			rightPriceScale: { borderColor: '#333' },
 		});
 
 		const candleSeries = chart.addSeries(CandlestickSeries ,{
-		upColor: '#26a69a',
-		downColor: '#ef5350',
-		borderVisible: false,
-		wickUpColor: '#26a69a',
-		wickDownColor: '#ef5350',
+			upColor: '#26a69a',
+			downColor: '#ef5350',
+			borderVisible: false,
+			wickUpColor: '#26a69a',
+			wickDownColor: '#ef5350',
 		});
 
 		const volumeSeries = chart.addSeries(HistogramSeries, {
-		priceFormat: { type: 'volume' },
-		priceScaleId: '', // отдельная шкала
+			priceFormat: { type: 'volume' },
+			priceScaleId: '', // отдельная шкала
 		});
 
 		// после создания задаём scaleMargins через applyOptions
 		chart.priceScale('').applyOptions({
-		scaleMargins: {
-			top: 0.8,
-			bottom: 0,
-		},
+			scaleMargins: {
+				top: 0.8,
+				bottom: 0,
+			},
 		});
 
-		// static data (remove soon)
-		candleSeries.setData(mockCandlestickData);
-    	volumeSeries.setData(mockVolumeData);
+		// Подписываемся на обновления свечей
+		const candlesUpdateHandler = (newCandles: Candle[]) => {
+			const chartData: CandlestickData[] = newCandles.map(c => ({
+				time: c.time as Time, 
+				open: c.open,
+				high: c.high,
+				low: c.low,
+				close: c.close,
+			}));
+
+			candleSeries.setData(chartData);
+		};
+
+		eventEmitter.on(EVENTS.CANDLES_UPDATE, candlesUpdateHandler);
 
 		candleSeriesRef.current = candleSeries;
 		volumeSeriesRef.current = volumeSeries;
 
 		// --- Tooltip при наведении ---
 		chart.subscribeCrosshairMove((param) => {
-		if (
-			!param.time ||
-			!param.seriesData.size ||
-			!candleSeriesRef.current ||
-			!volumeSeriesRef.current
-		) {
-			setHoverData(null);
-			return;
-		}
+			if (
+				!param.time ||
+				!param.seriesData.size ||
+				!candleSeriesRef.current ||
+				!volumeSeriesRef.current
+			) {
+				setHoverData(null);
+				return;
+			}
 
 		const candleData = param.seriesData.get(candleSeriesRef.current) as CandlestickData;
 		const volumeData = param.seriesData.get(volumeSeriesRef.current) as HistogramData;

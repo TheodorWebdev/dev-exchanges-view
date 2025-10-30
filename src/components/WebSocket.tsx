@@ -1,20 +1,18 @@
 import { useEffect, useRef } from 'react';
 
-import { BybitParser, createBybitSubscribeMessage } from '@/exchanges/bybit';
 import { BinanceSocketParser } from '@/exchanges/binance';
+import { BybitSocketParser } from '@/exchanges/bybit';
 
 import { eventEmitter, EVENTS } from '@/utils/events';
-import type {Candle} from '@/utils/types';
-import {updateOrderBookLevels} from "@/utils/helpersFunctions.ts";
+import type { Candle, OrderBookTypes } from '@/utils/types';
 
 export default function WebSocketComponent() {
 	const candlestickDataRef = useRef<Candle[]>([]);
 	const wsRef = useRef<WebSocket | null>(null);
 	const intervalRef = useRef<number | null>(null);
-	const bidsMapRef = useRef<Map<number, { price: number; amount: number; total: number }>>(new Map());
-	const asksMapRef = useRef<Map<number, { price: number; amount: number; total: number }>>(new Map());
+	const bidsRef = useRef<Map<number, { price: number; amount: number; total: number }>>(new Map());
+	const asksRef = useRef<Map<number, { price: number; amount: number; total: number }>>(new Map());
 	const parserRef = useRef<any>(null);
-	const lastUpdateId = useRef<number | null>(null);
 
 	const clearConnect = () => {
 		if (wsRef.current) {
@@ -22,14 +20,14 @@ export default function WebSocketComponent() {
 			wsRef.current.close();
 			wsRef.current = null;
 			candlestickDataRef.current = [];
-			bidsMapRef.current.clear();
-			asksMapRef.current.clear();
+			bidsRef.current.clear();
+			asksRef.current.clear();
 		}
 	}
 
 	// Подписка на события смены вебсокет соединения
 	useEffect(() => {
-		const handleConnectionChange = ({ wsUrl, topics, exchange }: { wsUrl: string, topics: string[], exchange: string } ) => {
+		const handleConnectionChange = ({ wsUrl, exchange, pair }: { wsUrl: string, exchange: string, pair: string } ) => {
 			clearConnect();
 
 			switch (exchange) {
@@ -38,113 +36,69 @@ export default function WebSocketComponent() {
 					break;
 				}
 				case "BYBIT": {
-					parserRef.current = BybitParser();
+					parserRef.current = new BybitSocketParser();
 					break;
 				}
 			}
 
+			const parser = parserRef.current;
 			const ws = new WebSocket(wsUrl);
 
 			ws.onopen = async () => {
 				console.log("[WS] Cоединение создано");
-				switch (exchange) {
-					case "BINANCE": {
-						const parser = parserRef.current as BinanceSocketParser;
-						for (const topic of topics) {
-							const msg = await parser.ob_sub_msg(topic);
-							ws.send(msg);
-						}
-						break;
-					}
-					case "BYBIT": {
-						const subscribeMessage = createBybitSubscribeMessage(topics);
-						ws.send(subscribeMessage);
-						break;
-					}
-				}
+
+				const msg = await parser.ob_sub_msg(pair)
+				ws.send(msg);
 			};
 
 			ws.onmessage = async (event) => {
-				const msg = JSON.parse(event.data);
+				const parsed = await parserRef.current.ob_parse(ws, event);
+				if (!parsed) return;
+				
+				if (parsed.type === "snapshot") {
+					bidsRef.current.clear();
+					parsed.bids.forEach((el: OrderBookTypes) => {
+						bidsRef.current.set(el.price, { 
+							price: el.price, 
+							amount: el.amount,
+							total: el.price * el.amount,
+						});
+					});
 
-				switch (exchange) {
-					case "BYBIT": {
-						if (msg.data && Array.isArray(msg.data.b) && Array.isArray(msg.data.a)) {
-							const { bids, asks } = parserRef.current.parseOrderBook(msg.data);
+					asksRef.current.clear();
+					parsed.asks.forEach((el: OrderBookTypes) => {
+						asksRef.current.set(el.price, { 
+							price: el.price, 
+							amount: el.amount,
+							total: el.price * el.amount,
+						});
+					});
+				}
 
-							if (msg.type === "snapshot") {
-								bids.forEach(([price, amount]: [number, number]) => {
-									bidsMapRef.current.set(price, { price, amount, total: price * amount });
-								});
-
-								asks.forEach(([price, amount]: [number, number]) => {
-									asksMapRef.current.set(price, { price, amount, total: price * amount })
-								});
-							} else if (msg.type === "delta") {
-								updateOrderBookLevels(bidsMapRef.current, bids);
-								updateOrderBookLevels(asksMapRef.current, asks);
-							}
-						}
-						break;
-					}
-					case "BINANCE": {
-						// Если пришёл первый снапшот через lastUpdateId
-						if (msg.lastUpdateId || msg.U !== undefined) {
-							const parser = parserRef.current as BinanceSocketParser;
-							const parsed = await parser.ob_parse(ws, event);
-							if (!parsed) return;
-
-							console.log(parsed);
-
-							// snapshot
-							if (parsed.type === "snapshot") {
-								bidsMapRef.current.clear();
-								asksMapRef.current.clear();
-
-								for (const b of parsed.bids) {
-									if (b.amount > 0) {
-										bidsMapRef.current.set(b.price, { price: b.price, amount: b.amount, total: b.total });
-									}
-								}
-								for (const a of parsed.asks) {
-									if (a.amount > 0) {
-										asksMapRef.current.set(a.price, { price: a.price, amount: a.amount, total: a.total });
-									}
-								}
-
-								lastUpdateId.current = msg.lastUpdateId ?? msg.u;
-							}
-
-
-							// delta
-							if (msg.U > (lastUpdateId.current ?? 0) + 1) {
-								bidsMapRef.current.clear();
-								asksMapRef.current.clear();
-								lastUpdateId.current = msg.u;
-								return;
-							}
-
-							parsed.bids.forEach(({ price, amount, total }) => {
-								if (amount > 0) {
-									bidsMapRef.current.set(price, { price, amount, total });
-								} else {
-									bidsMapRef.current.delete(price);
-								}
+				if (parsed.type === "delta") {
+					parsed.bids.forEach((el: OrderBookTypes) => {
+						if (el.amount === 0) {
+							bidsRef.current.delete(el.price);
+						} else {
+							bidsRef.current.set(el.price, { 
+								price: el.price, 
+								amount: el.amount,
+								total: el.price * el.amount,
 							});
-
-							parsed.asks.forEach(({ price, amount, total }) => {
-								if (amount > 0) {
-									asksMapRef.current.set(price, { price, amount, total });
-								} else {
-									asksMapRef.current.delete(price);
-								}
-							});
-
-							lastUpdateId.current = msg.u;
 						}
-						break;
-					}
+					});
 
+					parsed.asks.forEach((el: OrderBookTypes) => {
+						if (el.amount === 0) {
+							asksRef.current.delete(el.price);
+						} else {
+							asksRef.current.set(el.price, { 
+								price: el.price, 
+								amount: el.amount,
+								total: el.price * el.amount,
+							});
+						}
+					});
 				}
 			};
 
@@ -188,8 +142,8 @@ export default function WebSocketComponent() {
 
 		intervalRef.current = setInterval(() => {
 			// Инициализация событий: order book
-			const bids = Array.from(bidsMapRef.current.values()).sort((a, b) => b.price - a.price).slice(0, 50);
-			const asks = Array.from(asksMapRef.current.values()).sort((a, b) => a.price - b.price).slice(0, 50);
+			const bids = Array.from(bidsRef.current.values()).sort((a, b) => b.price - a.price).slice(0, 50);
+			const asks = Array.from(asksRef.current.values()).sort((a, b) => a.price - b.price).slice(0, 50);
 
 			if (bids.length > 0 || asks.length > 0) {
 				const dataToEmit = { bids, asks };
