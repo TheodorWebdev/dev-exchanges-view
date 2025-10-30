@@ -66,8 +66,6 @@ export default function WebSocketComponent() {
 			ws.onmessage = (event) => {
 				const msg = JSON.parse(event.data);
 
-				console.log(msg);
-
 				switch (exchange) {
 					case "BYBIT": {
 						if (msg.data && Array.isArray(msg.data.b) && Array.isArray(msg.data.a)) {
@@ -167,11 +165,14 @@ export default function WebSocketComponent() {
 
 		intervalRef.current = setInterval(() => {
 			// Инициализация событий: order book
-			const bids = Array.from(bidsMapRef.current.values()).sort((a, b) => b.price - a.price);
-			const asks = Array.from(asksMapRef.current.values()).sort((a, b) => a.price - b.price);
+			const bids = Array.from(bidsMapRef.current.values()).sort((a, b) => b.price - a.price).slice(0, 50);
+			const asks = Array.from(asksMapRef.current.values()).sort((a, b) => a.price - b.price).slice(0, 50);
 
 			if (bids.length > 0 || asks.length > 0) {
-				eventEmitter.emit(EVENTS.ORDERBOOK_UPDATE, { bids, asks });
+				const dataToEmit = { bids, asks };
+      			const jsonString = JSON.stringify(dataToEmit); 
+
+				eventEmitter.emit(EVENTS.ORDERBOOK_UPDATE, jsonString);
 			}
 		}, updateInterval);
 
