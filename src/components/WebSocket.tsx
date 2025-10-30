@@ -1,10 +1,11 @@
 import { useEffect, useRef } from 'react';
 
 import { BybitParser, createBybitSubscribeMessage } from '@/exchanges/bybit';
-import { BinanceParser, createBinanceSubscribeMessage } from '@/exchanges/binance';
+import { BinanceSocketParser } from '@/exchanges/binance';
 
 import { eventEmitter, EVENTS } from '@/utils/events';
-import type { Candle } from '@/utils/types';
+import type {Candle} from '@/utils/types';
+import {updateOrderBookLevels} from "@/utils/helpersFunctions.ts";
 
 export default function WebSocketComponent() {
 	const candlestickDataRef = useRef<Candle[]>([]);
@@ -13,6 +14,7 @@ export default function WebSocketComponent() {
 	const bidsMapRef = useRef<Map<number, { price: number; amount: number; total: number }>>(new Map());
 	const asksMapRef = useRef<Map<number, { price: number; amount: number; total: number }>>(new Map());
 	const parserRef = useRef<any>(null);
+	const lastUpdateId = useRef<number | null>(null);
 
 	const clearConnect = () => {
 		if (wsRef.current) {
@@ -32,35 +34,39 @@ export default function WebSocketComponent() {
 
 			switch (exchange) {
 				case "BINANCE": {
-					parserRef.current = BinanceParser();
+					parserRef.current = new BinanceSocketParser();
 					break;
 				}
-				case "BYBIT": { 
-					parserRef.current = BybitParser ();
-					break; 
+				case "BYBIT": {
+					parserRef.current = BybitParser();
+					break;
 				}
 			}
 
 			const ws = new WebSocket(wsUrl);
-		
+
 			ws.onopen = () => {
 				console.log("[WS] Cоединение создано");
 				switch (exchange) {
 					case "BINANCE": {
-						const subscribeMessage = createBinanceSubscribeMessage(topics);
-						ws.send(subscribeMessage);
+						const parser = parserRef.current as BinanceSocketParser;
+
+						parser.ob_sub_msg(topics[0]).then(msg => ws.send(msg));
+						parser.ob_sub_msg(topics[1]).then(msg => ws.send(msg));
 						break;
 					}
-					case "BYBIT": { 
+					case "BYBIT": {
 						const subscribeMessage = createBybitSubscribeMessage(topics);
 						ws.send(subscribeMessage);
-						break; 
+						break;
 					}
 				}
 			};
 
 			ws.onmessage = (event) => {
 				const msg = JSON.parse(event.data);
+
+				console.log(msg);
 
 				switch (exchange) {
 					case "BYBIT": {
@@ -76,29 +82,48 @@ export default function WebSocketComponent() {
 									asksMapRef.current.set(price, { price, amount, total: price * amount })
 								});
 							} else if (msg.type === "delta") {
-								bids.forEach(([price, amount]: [number, number]) => {
-									if (amount === 0) {
-										bidsMapRef.current.delete(price);
-									} else {
-										bidsMapRef.current.set(price, { price, amount, total: price * amount });
-									}
-								});
-
-								asks.forEach(([price, amount]: [number, number]) => {
-									if (amount === 0) {
-										asksMapRef.current.delete(price);
-									} else {
-										asksMapRef.current.set(price, { price, amount, total: price * amount });
-									}
-								});
+								updateOrderBookLevels(bidsMapRef.current, bids);
+								updateOrderBookLevels(asksMapRef.current, asks);
 							}
 						}
-						break;	
-					}
-					case "BINANCE": {
-						// Нелля
 						break;
 					}
+					case "BINANCE": {
+						// Если пришёл первый снапшот через lastUpdateId
+						if (msg.lastUpdateId) {
+							const { bids, asks } = parserRef.current.parseOrderBook(msg);
+
+							bids.forEach(([price, amount]: [number, number]) => {
+								bidsMapRef.current.set(price, { price, amount, total: price * amount });
+							});
+
+							asks.forEach(([price, amount]: [number, number]) => {
+								asksMapRef.current.set(price, { price, amount, total: price * amount });
+							});
+
+							lastUpdateId.current = msg.lastUpdateId;
+							return;
+						}
+
+						// Если пришла дельта
+						if (msg.U !== undefined && msg.u !== undefined && msg.b && msg.a) {
+							// Пропущенные обновления
+							if (msg.U > lastUpdateId.current! + 1) {
+								bidsMapRef.current.clear();
+								asksMapRef.current.clear();
+								lastUpdateId.current = msg.u;
+								return;
+							}
+
+							// Применяем дельту
+							updateOrderBookLevels(bidsMapRef.current, msg.b);
+							updateOrderBookLevels(asksMapRef.current, msg.a);
+
+							lastUpdateId.current = msg.u;
+						}
+						break;
+					}
+
 				}
 			};
 
@@ -144,7 +169,7 @@ export default function WebSocketComponent() {
 			// Инициализация событий: order book
 			const bids = Array.from(bidsMapRef.current.values()).sort((a, b) => b.price - a.price);
 			const asks = Array.from(asksMapRef.current.values()).sort((a, b) => a.price - b.price);
-			
+
 			if (bids.length > 0 || asks.length > 0) {
 				eventEmitter.emit(EVENTS.ORDERBOOK_UPDATE, { bids, asks });
 			}

@@ -5,8 +5,8 @@ export const INTERVAL_1H = '1h';
 export const INTERVAL_1D = '1d';
 
 export const EXCHANGES = {
-    BINANCE: 'binance',
-    BYBIT: 'bybit',
+    BINANCE: 'BINANCE',
+    BYBIT: 'BYBIT',
 };
 
 export const SOCKET_URLS = {

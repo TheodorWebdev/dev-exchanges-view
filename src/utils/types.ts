@@ -4,6 +4,12 @@ export interface OrderBookTypes {
     total: number;
 }
 
+export interface ParsedOB {
+    type: "snapshot" | "delta";
+    bids: OrderBookTypes[];
+    asks: OrderBookTypes[];
+}
+
 export interface Candle {
     time: number | string;
     open: number;

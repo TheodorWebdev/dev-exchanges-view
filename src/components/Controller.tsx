@@ -20,7 +20,7 @@ const Controller = () => {
         const wsUrl = SOCKET_URLS[exchange as keyof typeof SOCKET_URLS];
 
         const topics = exchange === "BINANCE"
-            ? [`${pair.toLowerCase()}@kline_${interval}`, `${pair.toLowerCase()}@depth100ms`]
+            ? [`${pair.toLowerCase()}@kline_${interval}`, `${pair.toLowerCase()}`]
             : [`kline.${interval[0]}.${pair}`, `orderbook.50.${pair}`];
 
         setTimeout(() => {
