@@ -18,23 +18,12 @@ export interface Candle {
     close: number;
 }
 
-export interface OrderBookBybitData {
-    s: string;
-    b: [string, string][];
-    a: [string, string][];
-    u: number;
-    seq: number;
+export interface ProbitOrder {
+    side: 'buy' | 'sell';
+    price: string;
+    quantity: string;
 }
 
-export interface OrderBookBinanceData {
-    e: string;
-    E: number;
-    s: string;
-    U: number;
-    u: number;
-    b: [string, string][];
-    a: [string, string][];
-}
 
 export interface KlineInnerDataBinance {
     t: number;

@@ -21,7 +21,7 @@ const Controller = () => {
     const intervals = [INTERVAL_1M, INTERVAL_5M, INTERVAL_15M, INTERVAL_1H, INTERVAL_1D];
 
     const [exchange, setExchange] = useState<string>(EXCHANGES.BINANCE);
-	const [pair, setPair] = useState<string>("BTCUSDT");
+	const [pair, setPair] = useState<string>("BTC/USDT");
 	const [interval, setInterval] = useState<string>("1m");
 
     useEffect(() => {
@@ -31,6 +31,7 @@ const Controller = () => {
             eventEmitter.emit(EVENTS.WEBSOCKET_CONNECTION_CHANGE, { wsUrl, exchange, pair });
         }, 1000);
     }, [exchange, pair, interval]);
+
 
     return (
         <HStack>

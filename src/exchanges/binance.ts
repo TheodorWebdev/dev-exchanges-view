@@ -23,10 +23,10 @@ export class BinanceSocketParser {
     }
 
     ob_sub_msg = async (pair: string, depth = 20): Promise<string> => {
-        const s = pair.toLowerCase();
+        const symbol = pair.replace("/", "").toLowerCase();
         return JSON.stringify({
             method: "SUBSCRIBE",
-            params: [`${s}@depth${depth}@100ms`],
+            params: [`${symbol}@depth${depth}@100ms`],
             id: Date.now(),
         });
     };
