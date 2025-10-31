@@ -57,7 +57,7 @@ export default function OrderBook() {
 					{orderBookData.bids.map(({ price, amount, total }, i) => (
 						<HStack key={i} justifyContent="space-between">
 							<Box color="red.600" w="30%">{price.toFixed(2)}</Box>
-							<Box color="gray.400" w="30%">{amount.toFixed(3)}</Box>
+							<Box color="gray.400" w="30%">{amount}</Box>
 							<Box color="orange.200" w="30%">{total.toFixed(2)}</Box>
 						</HStack>
 					))}
@@ -69,7 +69,7 @@ export default function OrderBook() {
 					{orderBookData.asks.map(({ price, amount, total }, i) => (
 						<HStack key={i} justifyContent="space-between">
 							<Box color="green.600" w="30%">{price.toFixed(2)}</Box>
-							<Box color="gray.400" w="30%">{amount.toFixed(3)}</Box>
+							<Box color="gray.400" w="30%">{amount}</Box>
 							<Box color="orange.200" w="30%">{total.toFixed(2)}</Box>
 						</HStack>
 					))}

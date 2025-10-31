@@ -22,8 +22,8 @@ export class BinanceSocketParser {
         return SOCKET_URLS.BINANCE;
     }
 
-    ob_sub_msg = async (symbol: string, depth = 20): Promise<string> => {
-        const s = symbol.toLowerCase();
+    ob_sub_msg = async (pair: string, depth = 20): Promise<string> => {
+        const s = pair.toLowerCase();
         return JSON.stringify({
             method: "SUBSCRIBE",
             params: [`${s}@depth${depth}@100ms`],
@@ -35,9 +35,7 @@ export class BinanceSocketParser {
         const symbol = pair.replace("/", "").toLowerCase();
         return JSON.stringify({
             method: "UNSUBSCRIBE",
-            params: [
-                `${symbol}@depth${depth}@100ms`
-            ],
+            params: [`${symbol}@depth${depth}@100ms`],
             id: Date.now(),
         });
     };

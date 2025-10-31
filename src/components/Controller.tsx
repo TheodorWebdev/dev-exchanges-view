@@ -27,12 +27,8 @@ const Controller = () => {
     useEffect(() => {
         const wsUrl = SOCKET_URLS[exchange as keyof typeof SOCKET_URLS];
 
-        const topics = exchange === "BINANCE"
-            ? [`${pair.toLowerCase()}@kline_${interval}`, `${pair.toLowerCase()}`]
-            : [`kline.${interval[0]}.${pair}`, `orderbook.50.${pair}`];
-
         setTimeout(() => {
-            eventEmitter.emit(EVENTS.WEBSOCKET_CONNECTION_CHANGE, { wsUrl, topics, exchange });
+            eventEmitter.emit(EVENTS.WEBSOCKET_CONNECTION_CHANGE, { wsUrl, exchange, pair });
         }, 1000);
     }, [exchange, pair, interval]);
 
