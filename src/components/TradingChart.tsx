@@ -3,7 +3,7 @@ import { useLayoutEffect, useRef, useState } from 'react';
 import { Card, Flex, HStack, Text, Box } from '@chakra-ui/react';
 
 import { CandlestickSeries, createChart, HistogramSeries } from 'lightweight-charts';
-import type { ISeriesApi, CandlestickData, HistogramData, Time } from 'lightweight-charts';
+import type { ISeriesApi, CandlestickData, HistogramData, UTCTimestamp } from 'lightweight-charts';
 
 import { eventEmitter, EVENTS } from '@/utils/events'
 import type { Candle } from '@/utils/types'
@@ -56,7 +56,7 @@ export default function TradingChart() {
 		// Подписываемся на обновления свечей
 		const candlesUpdateHandler = (newCandles: Candle[]) => {
 			const chartData: CandlestickData[] = newCandles.map(c => ({
-				time: c.time as Time, 
+				time: c.time as UTCTimestamp, 
 				open: c.open,
 				high: c.high,
 				low: c.low,
@@ -88,13 +88,16 @@ export default function TradingChart() {
 
 		if (candleData && volumeData) {
 			setHoverData({
-			...candleData,
-			volume: volumeData.value,
+				...candleData,
+				volume: volumeData.value,
 			});
 		}
 		});
 
-		return () => chart.remove();
+		return () => {
+			eventEmitter.off(EVENTS.CANDLES_UPDATE, candlesUpdateHandler); 
+			chart.remove();
+		}
 	}, []);
 
 	return (
@@ -113,6 +116,7 @@ export default function TradingChart() {
 					<Text color="gray.400">Наведите на свечу...</Text>
 					)}
 				</Flex>
+
 				<Box ref={chartContainerRef} w="100%" h="100%" borderRadius="md" overflow="hidden" />
 			</Card.Body>
 		</Card.Root>

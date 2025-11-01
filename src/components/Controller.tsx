@@ -26,10 +26,11 @@ const Controller = () => {
 
     useEffect(() => {
         const wsUrl = SOCKET_URLS[exchange as keyof typeof SOCKET_URLS];
+        eventEmitter.emit(EVENTS.ORDERBOOK_UPDATE, JSON.stringify(''));
 
         setTimeout(() => {
-            eventEmitter.emit(EVENTS.WEBSOCKET_CONNECTION_CHANGE, { wsUrl, exchange, pair });
-        }, 1000);
+            eventEmitter.emit(EVENTS.WEBSOCKET_CONNECTION_CHANGE, { wsUrl, exchange, pair, interval });
+        }, 0);
     }, [exchange, pair, interval]);
 
     return (

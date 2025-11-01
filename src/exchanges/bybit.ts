@@ -1,10 +1,10 @@
 import type {
-    Candle,
     OrderBookTypes, 
-    ParsedOB
-} from "@/utils/types.ts";
+    ParsedOB,
+    Candle,
+} from "@/utils/types";
 
-import { EXCHANGES, SOCKET_URLS } from "@/utils/exchanges.ts";
+import { EXCHANGES, SOCKET_URLS, INTERVAL_1M, INTERVAL_5M, INTERVAL_15M, INTERVAL_1H, INTERVAL_1D } from "@/utils/exchanges.ts";
 
 export class BybitSocketParser {
     public readonly exchangeId = EXCHANGES.BYBIT;
@@ -23,33 +23,43 @@ export class BybitSocketParser {
         return SOCKET_URLS.BYBIT;
     };
 
-    ob_sub_msg = async (pair: string, depth = 50): Promise<string> => {
-        const symbol = pair.replace("/", "").toUpperCase();
+    intervalMap: Record<string, string> = {
+        [INTERVAL_1M]: '1',
+        [INTERVAL_5M]: '5',
+        [INTERVAL_15M]: '15',
+        [INTERVAL_1H]: '60',
+        [INTERVAL_1D]: 'D',
+    }; 
+
+    sub_msg = async (pair: string, interval: string): Promise<string> => {
+        const s = pair.replace("/", "").toUpperCase();
+        const i = this.intervalMap[interval];
         return JSON.stringify({
             op: "subscribe",
-            args: [`orderbook.${depth}.${symbol}`]
+            args: [`orderbook.50.${s}`, `kline.${i}.${s}`],
         });
     };
 
-    ob_unsub_msg = async (pair: string, depth = 50): Promise<string> => {
-        const symbol = pair.replace("/", "").toUpperCase();
+    unsub_msg = async (pair: string, interval: string): Promise<string> => {
+        const s = pair.replace("/", "").toUpperCase();
         return JSON.stringify({
             op: "unsubscribe",
-            args: [`orderbook.${depth}.${symbol}`]
+            args: [`orderbook.50.${s}`, `kline.${interval[0]}.${s}`],
         });
     };
-
+    
     ob_parse = async (_: WebSocket, msg: MessageEvent<any>): Promise<ParsedOB | undefined> => {
         const data = JSON.parse(msg.data);
 
         if (data.ret_msg === "pong") return;
 
-        const parseOrders = (orders?: [string, string][]): OrderBookTypes[] =>
-            (orders ?? []).map(([p, a]) => {
+        const parseOrders = (orders?: [string, string][]): OrderBookTypes[] => (
+            orders ?? []).map(([p, a]) => {
                 const price = Number(p);
                 const amount = Number(a);
                 return { price, amount, total: price * amount };
-            });
+            }
+        );
         
         const bidsRaw = data.data?.b;
         const asksRaw = data.data?.a;
@@ -71,16 +81,20 @@ export class BybitSocketParser {
         }
     };
 
-    parseCandlestick(data: { s: string; k: { t: number; o: string; h: string; l: string; c: string } }, candles: Candle[]): 
-    Candle[] {
-        const k = data.k;
-        const newCandle: Candle = {
-            time: Math.floor(k.t / 1000),
-            open: parseFloat(k.o),
-            high: parseFloat(k.h),
-            low: parseFloat(k.l),
-            close: parseFloat(k.c),
-        };
-        return [...candles.slice(-50), newCandle];
+    cs_parse = async (_: WebSocket, msg: MessageEvent<any>): Promise<Candle | undefined> => {
+        const message = JSON.parse(msg.data);
+
+        const data = message.data;
+        const candle = data[0];
+
+        if (data.ret_msg === "pong") return;
+
+        return {
+            time: candle.start / 1000,
+            open: Number(candle.open),
+            high: Number(candle.high),
+            low: Number(candle.low),
+            close: Number(candle.close),
+        }
     }
 }

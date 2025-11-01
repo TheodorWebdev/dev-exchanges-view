@@ -1,4 +1,4 @@
-import type { OrderBookTypes } from "@/utils/types.ts";
+import type { OrderBookTypes, MessageType } from "@/utils/types.ts";
 
 export function updateOrderBookLevels(
     map: Map<number, OrderBookTypes>,
@@ -11,4 +11,18 @@ export function updateOrderBookLevels(
             map.set(price, { price, amount, total: price * amount });
         }
     }
+}
+
+export function detectMessageType(msg: any): MessageType {
+    // Bybit
+    if (msg.topic && (msg.topic.includes('kline') || msg.topic.includes('orderbook'))) {
+        return msg.topic.includes('kline') ? 'kline' : 'orderbook';
+    }
+
+    // Binance
+    if (msg.asks || msg.e === 'kline') {
+        return msg.e === 'kline' ? 'kline' : 'orderbook';
+    }
+
+    return 'unknown';
 }

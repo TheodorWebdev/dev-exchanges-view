@@ -6,11 +6,11 @@ import { ProbitSocketParser } from '@/exchanges/probit.ts';
 
 import { eventEmitter, EVENTS } from '@/utils/events';
 import type { Candle, OrderBookTypes } from '@/utils/types';
+import { detectMessageType } from '@/utils/helpersFunctions'
 
 export default function WebSocketComponent() {
 	const candlestickDataRef = useRef<Candle[]>([]);
 	const wsRef = useRef<WebSocket | null>(null);
-	const intervalRef = useRef<number | null>(null);
 	const bidsRef = useRef<Map<number, { price: number; amount: number; total: number }>>(new Map());
 	const asksRef = useRef<Map<number, { price: number; amount: number; total: number }>>(new Map());
 	const parserRef = useRef<any>(null);
@@ -26,9 +26,73 @@ export default function WebSocketComponent() {
 		}
 	}
 
+	const updateOrderBook = (parsed_msg: any) => {
+		if (parsed_msg.type === "snapshot") {
+			bidsRef.current.clear();
+			parsed_msg.bids.forEach((el: OrderBookTypes) => {
+				bidsRef.current.set(el.price, {
+					price: el.price,
+					amount: el.amount,
+					total: el.price * el.amount,
+				});
+			});
+
+			asksRef.current.clear();
+			parsed_msg.asks.forEach((el: OrderBookTypes) => {
+				asksRef.current.set(el.price, {
+					price: el.price,
+					amount: el.amount,
+					total: el.price * el.amount,
+				});
+			});
+		}
+
+		if (parsed_msg.type === "delta") {
+			parsed_msg.bids.forEach((el: OrderBookTypes) => {
+				if (el.amount === 0) {
+					bidsRef.current.delete(el.price);
+				} else {
+					bidsRef.current.set(el.price, {
+						price: el.price,
+						amount: el.amount,
+						total: el.price * el.amount,
+					});
+				}
+			});
+
+			parsed_msg.asks.forEach((el: OrderBookTypes) => {
+				if (el.amount === 0) {
+					asksRef.current.delete(el.price);
+				} else {
+					asksRef.current.set(el.price, {
+						price: el.price,
+						amount: el.amount,
+						total: el.price * el.amount,
+					});
+				}
+			});
+		}
+	}
+
+	const updateCandleStick = (parsed_msg: any) => {
+		const prevCandle = candlestickDataRef.current[candlestickDataRef.current.length - 1];
+
+		if (prevCandle && prevCandle.time === parsed_msg.time) {
+			candlestickDataRef.current = [
+				...candlestickDataRef.current.slice(0, -1),
+				parsed_msg
+			];
+		} else {
+			candlestickDataRef.current = [
+				...candlestickDataRef.current,
+				parsed_msg
+			];
+		}
+	}
+
 	// Подписка на события смены вебсокет соединения
 	useEffect(() => {
-		const handleConnectionChange = ({ wsUrl, exchange, pair }: { wsUrl: string, exchange: string, pair: string } ) => {
+		const handleConnectionChange = ({ wsUrl, exchange, pair, interval }: { wsUrl: string, exchange: string, pair: string, interval: string } ) => {
 			clearConnect();
 
 			switch (exchange) {
@@ -42,6 +106,7 @@ export default function WebSocketComponent() {
 				}
 				case "PROBIT": {
 					parserRef.current = new ProbitSocketParser();
+					break;
 				}
 			}
 
@@ -51,58 +116,28 @@ export default function WebSocketComponent() {
 			ws.onopen = async () => {
 				console.log("[WS] Cоединение создано");
 
-				const msg = await parser.ob_sub_msg(pair)
+				const msg = await parser.sub_msg(pair, interval)
 				ws.send(msg);
 			};
 
 			ws.onmessage = async (event) => {
-				const parsed = await parserRef.current.ob_parse(ws, event);
-				if (!parsed) return;
+				const msgType = detectMessageType(JSON.parse(event.data));
 
-				if (parsed.type === "snapshot") {
-					bidsRef.current.clear();
-					parsed.bids.forEach((el: OrderBookTypes) => {
-						bidsRef.current.set(el.price, {
-							price: el.price,
-							amount: el.amount,
-							total: el.price * el.amount,
-						});
-					});
+				switch (msgType) {
+					case "orderbook": {
+						const ob_parsed = await parserRef.current.ob_parse(ws, event);
+						if (!ob_parsed) return;
 
-					asksRef.current.clear();
-					parsed.asks.forEach((el: OrderBookTypes) => {
-						asksRef.current.set(el.price, {
-							price: el.price,
-							amount: el.amount,
-							total: el.price * el.amount,
-						});
-					});
-				}
+						updateOrderBook(ob_parsed);
+						break;
+					}
+					case "kline": {
+						const cs_parsed = await parserRef.current.cs_parse(ws, event);
+						if (!cs_parsed) return;
 
-				if (parsed.type === "delta") {
-					parsed.bids.forEach((el: OrderBookTypes) => {
-						if (el.amount === 0) {
-							bidsRef.current.delete(el.price);
-						} else {
-							bidsRef.current.set(el.price, {
-								price: el.price,
-								amount: el.amount,
-								total: el.price * el.amount,
-							});
-						}
-					});
-
-					parsed.asks.forEach((el: OrderBookTypes) => {
-						if (el.amount === 0) {
-							asksRef.current.delete(el.price);
-						} else {
-							asksRef.current.set(el.price, {
-								price: el.price,
-								amount: el.amount,
-								total: el.price * el.amount,
-							});
-						}
-					});
+						updateCandleStick(cs_parsed);
+						break;
+					}
 				}
 			};
 
@@ -137,14 +172,14 @@ export default function WebSocketComponent() {
 	useEffect(() => {
 		const updateInterval = 500;
 
-		intervalRef.current = setInterval(() => {
+		const candlesInterval = setInterval(() => {
 			// Инициализация событий: candlestick data
 			if (candlestickDataRef.current.length > 0) {
-				eventEmitter.emit(EVENTS.CANDLES_UPDATE, [...candlestickDataRef.current]);
+				eventEmitter.emit(EVENTS.CANDLES_UPDATE, candlestickDataRef.current);
 			}
 		}, updateInterval);
 
-		intervalRef.current = setInterval(() => {
+		const orderbookInterval = setInterval(() => {
 			// Инициализация событий: order book
 			const bids = Array.from(bidsRef.current.values()).sort((a, b) => b.price - a.price).slice(0, 50);
 			const asks = Array.from(asksRef.current.values()).sort((a, b) => a.price - b.price).slice(0, 50);
@@ -158,9 +193,8 @@ export default function WebSocketComponent() {
 		}, updateInterval);
 
 		return () => {
-			if (intervalRef.current) {
-				clearInterval(intervalRef.current);
-			}
+			clearInterval(candlesInterval);
+    		clearInterval(orderbookInterval);
 		};
 	}, []);
 

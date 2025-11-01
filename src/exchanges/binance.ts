@@ -1,7 +1,7 @@
 import type {
+    OrderBookTypes, 
+    ParsedOB,
     Candle,
-    KlineStreamDataBinance,
-    OrderBookTypes, ParsedOB
 } from "@/utils/types.ts";
 import {EXCHANGES, SOCKET_URLS} from "@/utils/exchanges.ts";
 
@@ -22,20 +22,20 @@ export class BinanceSocketParser {
         return SOCKET_URLS.BINANCE;
     }
 
-    ob_sub_msg = async (pair: string, depth = 20): Promise<string> => {
+    sub_msg = async (pair: string, interval: string): Promise<string> => {
         const s = pair.toLowerCase();
         return JSON.stringify({
             method: "SUBSCRIBE",
-            params: [`${s}@depth${depth}@100ms`],
+            params: [`${s}@depth20@100ms`, `${s}@kline_${interval}`],
             id: Date.now(),
         });
     };
 
-    ob_unsub_msg = async (pair: string, depth = 20): Promise<string> => {
-        const symbol = pair.replace("/", "").toLowerCase();
+    unsub_msg = async (pair: string, interval: string): Promise<string> => {
+        const s = pair.replace("/", "").toLowerCase();
         return JSON.stringify({
             method: "UNSUBSCRIBE",
-            params: [`${symbol}@depth${depth}@100ms`],
+            params: [`${s}@depth20@100ms`, `${s}@kline_${interval}`],
             id: Date.now(),
         });
     };
@@ -62,15 +62,17 @@ export class BinanceSocketParser {
         };
     };
 
-    parseCandlestick(data: KlineStreamDataBinance, candles: Candle[]): Candle[] {
-        const k = data.k;
-        const newCandle: Candle = {
-            time: Math.floor(k.t / 1000),
-            open: parseFloat(k.o),
-            high: parseFloat(k.h),
-            low: parseFloat(k.l),
-            close: parseFloat(k.c),
-        };
-        return [...candles.slice(-50), newCandle];
+    cs_parse = async (_: WebSocket, msg: MessageEvent<any>): Promise<Candle | undefined> =>  {
+        const message = JSON.parse(msg.data);
+
+        const k = message.k;
+        
+        return {
+            time: Number(k.t / 1000),
+            open: Number(k.o),
+            high: Number(k.h),
+            low: Number(k.l),
+            close: Number(k.c),
+        }
     }
 }
