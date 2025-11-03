@@ -1,6 +1,5 @@
 import {EXCHANGES, SOCKET_URLS} from "@/utils/exchanges.ts";
-import type {Candle, ParsedOB} from "@/utils/types.ts";
-
+import type {Candle, OrderBookTypes, ParsedOB, ProbitOrder} from "@/utils/types.ts";
 
 export class ProbitSocketParser {
     public readonly exchangeId = EXCHANGES.PROBIT;
@@ -19,19 +18,24 @@ export class ProbitSocketParser {
         return SOCKET_URLS.PROBIT;
     }
 
-    ob_sub_msg = (pair: string, depth = 20): string => {
+    ob_sub_msg = async (pair: string, interval = 100): Promise<string> => {
         const symbol = pair.replace("/", "-").toUpperCase();
+
         return JSON.stringify({
             type: "subscribe",
-            channel: "order_books",
-            interval: 500,
-            filter: { market_id: symbol, level: depth }
+            channel: "marketdata",
+            interval: interval,
+            market_id: symbol,
+            filter: {
+                order_books: ["order_books_l3"],
+                ticker: true
+            }
         });
     };
 
     // на свечи
-    candle_sub_msg = (pair: string, interval = "1m"): string => {
-        const symbol = pair.replace("/", "-").toUpperCase();
+    candle_sub_msg = async (pair: string, interval = "1m"): Promise<string> => {
+        const symbol = pair.replace("/", "").toUpperCase();
         return JSON.stringify({
             type: "subscribe",
             channel: "candlestick",
@@ -41,59 +45,70 @@ export class ProbitSocketParser {
 
 
     ob_unsub_msg = async (pair: string): Promise<string> => {
-        const symbol = pair.replace("/", "-").toUpperCase();
+        const symbol = pair.replace("/", "").toUpperCase();
         return JSON.stringify({
             type: "unsubscribe",
-            channel: "order_books",
+            channel: "marketdata",
             filter: {
-                market_id: symbol
+                market_id: [symbol]
             }
         });
     };
 
-    ob_parse(msg: MessageEvent<any>): ParsedOB | undefined {
-        const parsedMsg = JSON.parse(msg.data);
+    ob_parse = async (_: WebSocket, msg: MessageEvent<any>): Promise<ParsedOB | undefined> => {
+        const data = JSON.parse(msg.data);
 
-        const parseOrders = (orders?: [string, string][]) => {
-            if (!orders) return [];
-            return orders.map(([pStr, aStr]) => {
-                const price = Number(pStr);
-                const amount = Number(aStr);
-                return { price, amount, total: price * amount };
-            });
-        };
+        if (data.ret_msg === "pong") return;
 
-        if (parsedMsg.type === "snapshot") {
+        const orderBooksRaw: ProbitOrder[] = data.order_books ?? [];
+
+        if (!orderBooksRaw.length) return;
+
+        console.log(data.type)
+
+        const parseOrders = (orders?: ProbitOrder[]): OrderBookTypes[] =>
+            (orders ?? []).map(o => {
+                    const price = Number(o.price);
+                    const amount = Number(o.quantity);
+                    return { price, amount, total: price * amount };
+                });
+
+
+        const bidsRaw = orderBooksRaw.filter(o => o.side === 'buy');
+        const asksRaw = orderBooksRaw.filter(o => o.side === 'sell');
+
+        if (data.type === "snapshot") {
             return {
                 type: "snapshot",
-                bids: parseOrders(parsedMsg?.data?.b),
-                asks: parseOrders(parsedMsg?.data?.a),
+                bids: parseOrders(bidsRaw),
+                asks: parseOrders(asksRaw),
             };
         }
 
-        if (parsedMsg.type === "delta") {
+        if (data.type === "delta") {
             return {
                 type: "delta",
-                bids: parseOrders(parsedMsg?.data?.b),
-                asks: parseOrders(parsedMsg?.data?.a),
+                bids: parseOrders(bidsRaw),
+                asks: parseOrders(asksRaw),
             };
         }
     }
 
-    parseCandlestick(msg: MessageEvent<any>, candles: Candle[]): Candle[] {
-        const parsedMsg = JSON.parse(msg.data);
 
-        if (!parsedMsg.data || !parsedMsg.data.k) return candles;
+    cs_parse = async (_: WebSocket, msg: MessageEvent<any>): Promise<Candle | undefined> => {
+        const message = JSON.parse(msg.data);
 
-        const k = parsedMsg.data.k;
-        const newCandle: Candle = {
-            time: Math.floor(k.t / 1000),
-            open: parseFloat(k.o),
-            high: parseFloat(k.h),
-            low: parseFloat(k.l),
-            close: parseFloat(k.c),
-        };
+        const data = message.data;
+        const candle = data[0];
 
-        return [...candles.slice(-50), newCandle];
+        if (data.ret_msg === "pong") return;
+
+        return {
+            time: candle.start / 1000,
+            open: Number(candle.open),
+            high: Number(candle.high),
+            low: Number(candle.low),
+            close: Number(candle.close),
+        }
     }
 }

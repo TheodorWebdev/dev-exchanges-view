@@ -1,5 +1,5 @@
 import type {
-    OrderBookTypes, 
+    OrderBookTypes,
     ParsedOB,
     Candle,
 } from "@/utils/types.ts";
@@ -66,7 +66,7 @@ export class BinanceSocketParser {
         const message = JSON.parse(msg.data);
 
         const k = message.k;
-        
+
         return {
             time: Number(k.t / 1000),
             open: Number(k.o),

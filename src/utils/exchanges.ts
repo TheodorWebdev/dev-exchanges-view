@@ -13,5 +13,5 @@ export const EXCHANGES = {
 export const SOCKET_URLS = {
     BINANCE: 'wss://stream.binance.com:9443/ws',
     BYBIT: 'wss://stream.bybit.com/v5/public/spot',
-    PROBIT: 'wss://demo-api.probit.com/api/exchange/v1/ws',
+    PROBIT: 'wss://api.probit.com/api/exchange/v1/ws',
 };
