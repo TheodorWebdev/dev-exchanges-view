@@ -24,5 +24,14 @@ export function detectMessageType(msg: any): MessageType {
         return msg.e === 'kline' ? 'kline' : 'orderbook';
     }
 
+    //Probit
+    if (msg.channel === 'marketdata' && Array.isArray(msg.order_books)) {
+        return 'orderbook';
+    }
+
+    if (msg.channel === 'candlestick' && Array.isArray(msg.data)) {
+        return 'kline';
+    }
+
     return 'unknown';
 }
