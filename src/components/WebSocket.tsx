@@ -174,9 +174,10 @@ export default function WebSocketComponent() {
 
 		const candlesInterval = setInterval(() => {
 			// Инициализация событий: candlestick data
-			if (candlestickDataRef.current.length > 0) {
-				eventEmitter.emit(EVENTS.CANDLES_UPDATE, candlestickDataRef.current);
-			}
+			const lastCandle = candlestickDataRef.current[candlestickDataRef.current.length - 1];
+			if (lastCandle) {
+				eventEmitter.emit(EVENTS.CANDLES_UPDATE, lastCandle);
+    		}	
 		}, updateInterval);
 
 		const orderbookInterval = setInterval(() => {

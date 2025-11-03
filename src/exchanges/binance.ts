@@ -32,7 +32,7 @@ export class BinanceSocketParser {
     };
 
     unsub_msg = async (pair: string, interval: string): Promise<string> => {
-        const s = pair.replace("/", "").toLowerCase();
+        const s = pair.toLowerCase();
         return JSON.stringify({
             method: "UNSUBSCRIBE",
             params: [`${s}@depth20@100ms`, `${s}@kline_${interval}`],

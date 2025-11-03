@@ -32,19 +32,18 @@ export class BybitSocketParser {
     }; 
 
     sub_msg = async (pair: string, interval: string): Promise<string> => {
-        const s = pair.replace("/", "").toUpperCase();
         const i = this.intervalMap[interval];
         return JSON.stringify({
             op: "subscribe",
-            args: [`orderbook.50.${s}`, `kline.${i}.${s}`],
+            args: [`orderbook.50.${pair}`, `kline.${i}.${pair}`],
         });
     };
 
     unsub_msg = async (pair: string, interval: string): Promise<string> => {
-        const s = pair.replace("/", "").toUpperCase();
+        const i = this.intervalMap[interval];
         return JSON.stringify({
             op: "unsubscribe",
-            args: [`orderbook.50.${s}`, `kline.${interval[0]}.${s}`],
+            args: [`orderbook.50.${pair}`, `kline.${i}.${pair}`],
         });
     };
     

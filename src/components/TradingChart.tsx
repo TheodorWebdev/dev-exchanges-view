@@ -7,6 +7,7 @@ import type { ISeriesApi, CandlestickData, HistogramData, UTCTimestamp } from 'l
 
 import { eventEmitter, EVENTS } from '@/utils/events'
 import type { Candle } from '@/utils/types'
+import { loadHistory } from '@/utils/helpersFunctions';
 
 type CandlestickSeries = ISeriesApi<'Candlestick'>;
 type VolumeSeries = ISeriesApi<'Histogram'>;
@@ -53,17 +54,42 @@ export default function TradingChart() {
 			},
 		});
 
-		// Подписываемся на обновления свечей
-		const candlesUpdateHandler = (newCandles: Candle[]) => {
-			const chartData: CandlestickData[] = newCandles.map(c => ({
-				time: c.time as UTCTimestamp, 
-				open: c.open,
-				high: c.high,
-				low: c.low,
-				close: c.close,
-			}));
+		async function loadHistory() {
+			try {
+				const response = await fetch(
+					`https://api.bybit.com/v5/market/kline?category=spot&symbol=BTCUSDT&interval=1&limit=200`
+				);
+				const data = await response.json();
 
-			candleSeries.setData(chartData);
+				if (data.retCode === 0) {
+					const candles = data.result.list.map(([time, open, high, low, close]: [string, string, string, string, string]) => ({
+						time: Number(time) / 1000 as UTCTimestamp,
+						open: Number(open),
+						high: Number(high),
+						low: Number(low),
+						close: Number(close),
+					})).sort((a, b) => a.time - b.time);
+
+					candleSeries.setData(candles);
+				}
+			} catch (error) {
+				console.error('Ошибка загрузки истории:', error);
+			}
+		}
+
+		loadHistory();
+
+		// Подписываемся на обновления свечей
+		const candlesUpdateHandler = (newCandle: Candle) => {
+			const chartData: CandlestickData = {
+				time: newCandle.time as UTCTimestamp,
+				open: newCandle.open,
+				high: newCandle.high,
+				low: newCandle.low,
+				close: newCandle.close,
+			};
+
+			candleSeries.update(chartData);
 		};
 
 		eventEmitter.on(EVENTS.CANDLES_UPDATE, candlesUpdateHandler);
