@@ -19,3 +19,10 @@ export interface Candle {
     low: number;
     close: number;
 }
+
+
+export interface ProbitOrder {
+    side: 'buy' | 'sell';
+    price: string;
+    quantity: string;
+}
