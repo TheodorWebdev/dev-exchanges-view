@@ -21,13 +21,15 @@ export class ProbitSocketParser {
     ob_sub_msg = async (pair: string, interval = 100): Promise<string> => {
         const symbol = pair.replace("/", "-").toUpperCase();
 
-        console.log(symbol);
         return JSON.stringify({
             type: "subscribe",
             channel: "marketdata",
             interval: interval,
             market_id: symbol,
-            filter: ['ticker', 'order_books']
+            filter: {
+                order_books: ["order_books_l3"],
+                ticker: true
+            }
         });
     };
 
@@ -62,10 +64,10 @@ export class ProbitSocketParser {
 
         if (!orderBooksRaw.length) return;
 
+        console.log(data.type)
+
         const parseOrders = (orders?: ProbitOrder[]): OrderBookTypes[] =>
-            (orders ?? [])
-                .filter(o => Number(o.quantity) > 0)
-                .map(o => {
+            (orders ?? []).map(o => {
                     const price = Number(o.price);
                     const amount = Number(o.quantity);
                     return { price, amount, total: price * amount };
@@ -75,28 +77,38 @@ export class ProbitSocketParser {
         const bidsRaw = orderBooksRaw.filter(o => o.side === 'buy');
         const asksRaw = orderBooksRaw.filter(o => o.side === 'sell');
 
-        return {
-            type: 'snapshot',
-            bids: parseOrders(bidsRaw),
-            asks: parseOrders(asksRaw),
-        };
+        if (data.type === "snapshot") {
+            return {
+                type: "snapshot",
+                bids: parseOrders(bidsRaw),
+                asks: parseOrders(asksRaw),
+            };
+        }
+
+        if (data.type === "delta") {
+            return {
+                type: "delta",
+                bids: parseOrders(bidsRaw),
+                asks: parseOrders(asksRaw),
+            };
+        }
     }
 
 
-    parseCandlestick(msg: MessageEvent<any>, candles: Candle[]): Candle[] {
-        const parsedMsg = JSON.parse(msg.data);
+    cs_parse = async (_: WebSocket, msg: MessageEvent<any>): Promise<Candle | undefined> => {
+        const message = JSON.parse(msg.data);
 
-        if (!parsedMsg.data || !parsedMsg.data.k) return candles;
+        const data = message.data;
+        const candle = data[0];
 
-        const k = parsedMsg.data.k;
-        const newCandle: Candle = {
-            time: Math.floor(k.t / 1000),
-            open: parseFloat(k.o),
-            high: parseFloat(k.h),
-            low: parseFloat(k.l),
-            close: parseFloat(k.c),
-        };
+        if (data.ret_msg === "pong") return;
 
-        return [...candles.slice(-50), newCandle];
+        return {
+            time: candle.start / 1000,
+            open: Number(candle.open),
+            high: Number(candle.high),
+            low: Number(candle.low),
+            close: Number(candle.close),
+        }
     }
 }
