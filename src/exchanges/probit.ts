@@ -37,81 +37,6 @@ export class ProbitSocketParser {
         });
     };
 
-    // на свечи
-    async fetchCandles(pair: string, meta: FetchCandlesOptions = { type: "5min", limit: 100 }) {
-        try {
-            const { type = "5min", limit = 100 } = meta;
-            let { start, end } = meta;
-
-            const types: Record<string, string> = {
-                "1min": "1m",
-                "5min": "5m",
-                "15min": "15m",
-                "30min": "30m",
-                "1hour": "1h",
-                "4hour": "4h",
-                "1day": "1D",
-                "1week": "1W",
-            };
-
-            const weights: Record<string, number> = {
-                "1min": 60 * 1000,
-                "5min": 5 * 60 * 1000,
-                "15min": 15 * 60 * 1000,
-                "30min": 30 * 60 * 1000,
-                "1hour": 60 * 60 * 1000,
-                "4hour": 4 * 60 * 60 * 1000,
-                "1day": 24 * 60 * 60 * 1000,
-                "1week": 7 * 24 * 60 * 60 * 1000,
-            };
-
-            const intervalMs = weights[type] ?? weights["5min"];
-            start = start ?? Date.now() - limit * intervalMs;
-            end = end ?? Date.now();
-
-            // находим пару
-            const pairObj = PAIRS.find(
-                p => `${p.base}${p.quote}`.toUpperCase() === pair.replace("/", "").toUpperCase()
-            );
-
-            const symbol = pairObj
-                ? `${pairObj.base}-${pairObj.quote}`.toUpperCase()
-                : pair.replace("/", "-").toUpperCase();
-
-            // используем прокси вместо прямого хоста
-            const url = new URL(`/probit-api/api/exchange/v1/candle`, window.location.origin);
-            url.searchParams.append("market_ids", symbol);
-            url.searchParams.append("start_time", new Date(start).toISOString());
-            url.searchParams.append("end_time", new Date(end).toISOString());
-            url.searchParams.append("interval", types[type] ?? "5m");
-            url.searchParams.append("sort", "asc");
-            url.searchParams.append("limit", limit.toString());
-
-            const res = await fetch(url.toString(), { method: "GET", headers: { accept: "application/json" } });
-            if (!res.ok) throw new Error(`Failed to fetch candles: ${res.status} ${res.statusText}`);
-
-            const json = await res.json();
-            const klineData = (json.data ?? []).map((line: any) => {
-                const ts = new Date(line.start_time);
-                const time = Math.floor(ts.getTime() / 1000);
-
-                return {
-                    time,
-                    open: +line.open,
-                    high: +line.high,
-                    low: +line.low,
-                    close: +line.close,
-                };
-            });
-
-            console.log(klineData);
-            return klineData;
-
-        } catch (err) {
-            console.error("fetchCandles error:", err);
-            return [];
-        }
-    }
 
     unsub_msg = async (pair: string): Promise<string> => {
         const symbol = pair.replace("/", "-").toUpperCase();
@@ -197,6 +122,82 @@ export class ProbitSocketParser {
             return undefined;
         }
     };
+
+    // на свечи
+    async fetchCandles(pair: string, meta: FetchCandlesOptions = { type: "5min", limit: 100 }) {
+        try {
+            const { type = "5min", limit = 100 } = meta;
+            let { start, end } = meta;
+
+            const types: Record<string, string> = {
+                "1min": "1m",
+                "5min": "5m",
+                "15min": "15m",
+                "30min": "30m",
+                "1hour": "1h",
+                "4hour": "4h",
+                "1day": "1D",
+                "1week": "1W",
+            };
+
+            const weights: Record<string, number> = {
+                "1min": 60 * 1000,
+                "5min": 5 * 60 * 1000,
+                "15min": 15 * 60 * 1000,
+                "30min": 30 * 60 * 1000,
+                "1hour": 60 * 60 * 1000,
+                "4hour": 4 * 60 * 60 * 1000,
+                "1day": 24 * 60 * 60 * 1000,
+                "1week": 7 * 24 * 60 * 60 * 1000,
+            };
+
+            const intervalMs = weights[type] ?? weights["5min"];
+            start = start ?? Date.now() - limit * intervalMs;
+            end = end ?? Date.now();
+
+            // находим пару
+            const pairObj = PAIRS.find(
+                p => `${p.base}${p.quote}`.toUpperCase() === pair.replace("/", "").toUpperCase()
+            );
+
+            const symbol = pairObj
+                ? `${pairObj.base}-${pairObj.quote}`.toUpperCase()
+                : pair.replace("/", "-").toUpperCase();
+
+            // используем прокси вместо прямого хоста
+            const url = new URL(`/probit-api/api/exchange/v1/candle`, window.location.origin);
+            url.searchParams.append("market_ids", symbol);
+            url.searchParams.append("start_time", new Date(start).toISOString());
+            url.searchParams.append("end_time", new Date(end).toISOString());
+            url.searchParams.append("interval", types[type] ?? "5m");
+            url.searchParams.append("sort", "asc");
+            url.searchParams.append("limit", limit.toString());
+
+            const res = await fetch(url.toString(), { method: "GET", headers: { accept: "application/json" } });
+            if (!res.ok) throw new Error(`Failed to fetch candles: ${res.status} ${res.statusText}`);
+
+            const json = await res.json();
+            const klineData = (json.data ?? []).map((line: any) => {
+                const ts = new Date(line.start_time);
+                const time = Math.floor(ts.getTime() / 1000);
+
+                return {
+                    time,
+                    open: +line.open,
+                    high: +line.high,
+                    low: +line.low,
+                    close: +line.close,
+                };
+            });
+
+            console.log(klineData);
+            return klineData;
+
+        } catch (err) {
+            console.error("fetchCandles error:", err);
+            return [];
+        }
+    }
 
 
 }
