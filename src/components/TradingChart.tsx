@@ -5,9 +5,8 @@ import { Card, Flex, HStack, Text, Box } from '@chakra-ui/react';
 import { CandlestickSeries, createChart, HistogramSeries } from 'lightweight-charts';
 import type { ISeriesApi, CandlestickData, HistogramData, UTCTimestamp } from 'lightweight-charts';
 
-import { eventEmitter, EVENTS } from '@/utils/events'
-import type { Candle } from '@/utils/types'
-import { loadHistory } from '@/utils/helpersFunctions';
+import { eventEmitter, EVENTS } from '@/utils/events';
+import type { Candle } from '@/utils/types';
 
 type CandlestickSeries = ISeriesApi<'Candlestick'>;
 type VolumeSeries = ISeriesApi<'Histogram'>;

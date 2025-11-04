@@ -4,7 +4,7 @@ import type {
     Candle,
 } from "@/utils/types";
 
-import { EXCHANGES, SOCKET_URLS, INTERVAL_1M, INTERVAL_5M, INTERVAL_15M, INTERVAL_1H, INTERVAL_1D } from "@/utils/exchanges.ts";
+import { EXCHANGES, INTERVAL_1M, INTERVAL_5M, INTERVAL_15M, INTERVAL_1H, INTERVAL_1D } from "@/utils/exchanges.ts";
 
 export class BybitSocketParser {
     public readonly exchangeId = EXCHANGES.BYBIT;
@@ -19,9 +19,7 @@ export class BybitSocketParser {
 
     constructor() { };
 
-    link(): string {
-        return SOCKET_URLS.BYBIT;
-    };
+    link = async (): Promise<string> => "wss://stream.bybit.com/v5/public/spot";
 
     intervalMap: Record<string, string> = {
         [INTERVAL_1M]: '1',
@@ -32,18 +30,24 @@ export class BybitSocketParser {
     }; 
 
     sub_msg = async (pair: string, interval: string): Promise<string> => {
+        const [base, quote] = pair.split('/');
+        const marketId = `${base}${quote}`;
         const i = this.intervalMap[interval];
+
         return JSON.stringify({
             op: "subscribe",
-            args: [`orderbook.50.${pair}`, `kline.${i}.${pair}`],
+            args: [`orderbook.50.${marketId}`, `kline.${i}.${marketId}`],
         });
     };
 
     unsub_msg = async (pair: string, interval: string): Promise<string> => {
+        const [base, quote] = pair.split('/');
+        const marketId = `${base}${quote}`;
         const i = this.intervalMap[interval];
+
         return JSON.stringify({
             op: "unsubscribe",
-            args: [`orderbook.50.${pair}`, `kline.${i}.${pair}`],
+            args: [`orderbook.50.${marketId}`, `kline.${i}.${marketId}`],
         });
     };
     
@@ -63,21 +67,13 @@ export class BybitSocketParser {
         const bidsRaw = data.data?.b;
         const asksRaw = data.data?.a;
 
-        if (data.type === "snapshot") {
-            return {
-                type: "snapshot",
-                bids: parseOrders(bidsRaw),
-                asks: parseOrders(asksRaw),
-            };
-        }
+        const type = data.type === "snapshot" ? "snapshot" : "delta";
 
-        if (data.type === "delta") {
-            return {
-                type: "delta",
-                bids: parseOrders(bidsRaw),
-                asks: parseOrders(asksRaw),
-            };
-        }
+        return {
+            type,
+            bids: parseOrders(bidsRaw),
+            asks: parseOrders(asksRaw),
+        };
     };
 
     cs_parse = async (_: WebSocket, msg: MessageEvent<any>): Promise<Candle | undefined> => {

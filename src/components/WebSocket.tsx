@@ -117,15 +117,15 @@ export default function WebSocketComponent() {
 				console.log("[WS] Cоединение создано");
 
 				const msg = await parser.sub_msg(pair, interval)
-				ws.send(msg);
+				ws.send(msg);``
 
-				if (exchange === "PROBIT" && parser.fetchCandles) {
-					const candles = await parser.fetchCandles(pair, "1m");
-					if (candles?.length) {
-						candlestickDataRef.current = candles;
-						eventEmitter.emit(EVENTS.CANDLES_UPDATE, candles);
-					}
-				}
+				// if (exchange === "PROBIT" && parser.fetchCandles) {
+				// 	const candles = await parser.fetchCandles(pair, "1m");
+				// 	if (candles?.length) {
+				// 		candlestickDataRef.current = candles;
+				// 		eventEmitter.emit(EVENTS.CANDLES_UPDATE, candles);
+				// 	}
+				// }
 			};
 
 			ws.onmessage = async (event) => {
@@ -142,8 +142,6 @@ export default function WebSocketComponent() {
 					case "kline": {
 						const cs_parsed = await parserRef.current.cs_parse(ws, event);
 						if (!cs_parsed) return;
-
-						console.log(cs_parsed)
 
 						if (Array.isArray(cs_parsed)) {
 							// если это массив (исторические свечи)

@@ -1,6 +1,5 @@
-import {EXCHANGES, SOCKET_URLS} from "@/utils/exchanges.ts";
-import type {Candle, ParsedOB, ProbitOrder} from "@/utils/types.ts";
-import {PAIRS} from "@/utils/pairs.ts";
+import { EXCHANGES } from "@/utils/exchanges.ts";
+import type { Candle, ParsedOB, ProbitOrder } from "@/utils/types.ts";
 
 export class ProbitSocketParser {
     public readonly exchangeId = EXCHANGES.PROBIT;
@@ -15,69 +14,63 @@ export class ProbitSocketParser {
 
     constructor() { };
 
-    link(): string {
-        return SOCKET_URLS.PROBIT;
-    }
+    link = async (): Promise<string> => "wss://api.probit.com/api/exchange/v1/ws";
 
-    sub_msg = async (pair: string, interval = 500): Promise<string> => {
-        const pairObj = PAIRS.find(p => p.symbol.replace("/", "").toUpperCase() === pair.replace("/", "").toUpperCase());
-
-        const symbol = pairObj
-            ? `${pairObj.base}-${pairObj.quote}`.toUpperCase()
-            : pair.replace("/", "-").toUpperCase();
-
-        const validInterval = [100, 500, 1000].includes(interval) ? interval : 100;
+    sub_msg = async (pair: string): Promise<string> => {
+        const [base, quote] = pair.split('/');
+        const marketId = `${base}-${quote}`;
 
         return JSON.stringify({
             type: "subscribe",
             channel: "marketdata",
-            interval: validInterval,
-            market_id: symbol,
+            interval: 100,
+            market_id: marketId,
             filter: ["ticker", "order_books"]
         });
     };
 
-    // на свечи
-    async fetchCandles(pair: string, interval = "1m", limit = 100) {
-        try {
-            const pairObj = PAIRS.find(p => p.symbol.replace("/", "").toUpperCase() === pair.replace("/", "").toUpperCase());
+    // // на свечи
+    // async fetchCandles(pair: string, interval = "1m", limit = 100) {
+    //     try {
+    //         const pairObj = PAIRS.find(p => p.symbol.replace("/", "").toUpperCase() === pair.replace("/", "").toUpperCase());
 
-            const symbol = pairObj
-                ? `${pairObj.base}-${pairObj.quote}`.toUpperCase()
-                : pair.replace("/", "-").toUpperCase();
+    //         const symbol = pairObj
+    //             ? `${pairObj.base}-${pairObj.quote}`.toUpperCase()
+    //             : pair.replace("/", "-").toUpperCase();
 
-            const end = new Date();
-            const start = new Date(end.getTime() - 60 * 60 * 1000);
+    //         const end = new Date();
+    //         const start = new Date(end.getTime() - 60 * 60 * 1000);
 
-            const url = `https://api.probit.com/api/exchange/v1/candle?market_ids=${symbol}&start_time=${encodeURIComponent(start.toISOString())}&end_time=${encodeURIComponent(end.toISOString())}&interval=${interval}&sort=asc&limit=${limit}`;
+    //         const url = `https://api.probit.com/api/exchange/v1/candle?market_ids=${symbol}&start_time=${encodeURIComponent(start.toISOString())}&end_time=${encodeURIComponent(end.toISOString())}&interval=${interval}&sort=asc&limit=${limit}`;
 
-            const options = {
-                method: "GET",
-                headers: { accept: "application/json" }
-            };
+    //         const options = {
+    //             method: "GET",
+    //             headers: { accept: "application/json" }
+    //         };
 
-            const res = await fetch(url, options);
-            if (!res.ok) {
-                throw new Error(`Failed to fetch candles: ${res.status} ${res.statusText}`);
-            }
+    //         const res = await fetch(url, options);
+    //         if (!res.ok) {
+    //             throw new Error(`Failed to fetch candles: ${res.status} ${res.statusText}`);
+    //         }
 
-            const json = await res.json();
+    //         const json = await res.json();
 
-            console.log(json);
-            return json.data;
-        } catch (err) {
-            console.error("fetchCandles error:", err);
-            return [];
-        }
-    }
-
+    //         console.log(json);
+    //         return json.data;
+    //     } catch (err) {
+    //         console.error("fetchCandles error:", err);
+    //         return [];
+    //     }
+    // }
 
     unsub_msg = async (pair: string): Promise<string> => {
-        const symbol = pair.replace("/", "-").toUpperCase();
+        const [base, quote] = pair.split('/');
+        const marketId = `${base}-${quote}`;
+        
         return JSON.stringify({
             type: "unsubscribe",
             channel: "marketdata",
-            market_id: symbol,
+            market_id: marketId,
             filter: ["ticker", "order_books"]
         });
     };
@@ -99,7 +92,7 @@ export class ProbitSocketParser {
                 total: Number(o.price) * Number(o.quantity)
             }));
 
-        const type = root.type === 'snapshot' ? 'snapshot' : 'delta';
+        const type = root.reset ? 'snapshot' : 'delta';
 
         return {
             type,

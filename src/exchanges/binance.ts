@@ -3,7 +3,7 @@ import type {
     ParsedOB,
     Candle,
 } from "@/utils/types.ts";
-import {EXCHANGES, SOCKET_URLS} from "@/utils/exchanges.ts";
+import { EXCHANGES } from "@/utils/exchanges.ts";
 
 export class BinanceSocketParser {
     public readonly exchangeId = EXCHANGES.BINANCE;
@@ -18,24 +18,26 @@ export class BinanceSocketParser {
 
     constructor() { };
 
-    link(): string {
-        return SOCKET_URLS.BINANCE;
-    }
+    link = async (): Promise<string> => "wss://stream.binance.com:9443/ws";
 
     sub_msg = async (pair: string, interval: string): Promise<string> => {
-        const s = pair.toLowerCase();
+        const [base, quote] = pair.split('/').map(s => s.toLowerCase());
+        const marketId = `${base}${quote}`;
+
         return JSON.stringify({
             method: "SUBSCRIBE",
-            params: [`${s}@depth20@100ms`, `${s}@kline_${interval}`],
+            params: [`${marketId}@depth20@100ms`, `${marketId}@kline_${interval}`],
             id: Date.now(),
         });
     };
 
     unsub_msg = async (pair: string, interval: string): Promise<string> => {
-        const s = pair.toLowerCase();
+        const [base, quote] = pair.split('/').map(s => s.toLowerCase());
+        const marketId = `${base}${quote}`;
+
         return JSON.stringify({
             method: "UNSUBSCRIBE",
-            params: [`${s}@depth20@100ms`, `${s}@kline_${interval}`],
+            params: [`${marketId}@depth20@100ms`, `${marketId}@kline_${interval}`],
             id: Date.now(),
         });
     };
@@ -62,7 +64,7 @@ export class BinanceSocketParser {
         };
     };
 
-    cs_parse = async (_: WebSocket, msg: MessageEvent<any>): Promise<Candle | undefined> =>  {
+    cs_parse = async (_: WebSocket, msg: MessageEvent<any>): Promise<Candle | undefined> => {
         const message = JSON.parse(msg.data);
 
         const k = message.k;
