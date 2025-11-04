@@ -1,3 +1,3 @@
 export const PAIRS = [
-    { symbol: 'BTC/USDT', base: 'BTC', quote: 'USDT' },
+    { base: 'BTC', quote: 'USDT' },
 ];

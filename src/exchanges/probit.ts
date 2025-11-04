@@ -20,7 +20,7 @@ export class ProbitSocketParser {
     }
 
     sub_msg = async (pair: string, interval = 500): Promise<string> => {
-        const pairObj = PAIRS.find(p => p.symbol.replace("/", "").toUpperCase() === pair.replace("/", "").toUpperCase());
+        const pairObj = PAIRS.find(p => `${p.base}${p.quote}`.toUpperCase() === pair.replace("/", "").toUpperCase());
 
         const symbol = pairObj
             ? `${pairObj.base}-${pairObj.quote}`.toUpperCase()
@@ -71,8 +71,9 @@ export class ProbitSocketParser {
 
             // находим пару
             const pairObj = PAIRS.find(
-                p => p.symbol.replace("/", "").toUpperCase() === pair.replace("/", "").toUpperCase()
+                p => `${p.base}${p.quote}`.toUpperCase() === pair.replace("/", "").toUpperCase()
             );
+
             const symbol = pairObj
                 ? `${pairObj.base}-${pairObj.quote}`.toUpperCase()
                 : pair.replace("/", "-").toUpperCase();
@@ -111,8 +112,6 @@ export class ProbitSocketParser {
             return [];
         }
     }
-
-
 
     unsub_msg = async (pair: string): Promise<string> => {
         const symbol = pair.replace("/", "-").toUpperCase();

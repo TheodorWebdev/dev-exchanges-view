@@ -17,7 +17,7 @@ import { PAIRS } from '@/utils/pairs';
 
 const Controller = () => {
     const exchanges = [EXCHANGES.BINANCE, EXCHANGES.BYBIT, EXCHANGES.PROBIT];
-    const pairs = PAIRS.map(p => p.symbol);
+    const pairs = PAIRS.map(p => `${p.base}${p.quote}`);
     const intervals = [INTERVAL_1M, INTERVAL_5M, INTERVAL_15M, INTERVAL_1H, INTERVAL_1D];
 
     const [exchange, setExchange] = useState<string>(EXCHANGES.BINANCE);
