@@ -5,7 +5,7 @@ import { BybitSocketParser } from '@/exchanges/bybit';
 import { ProbitSocketParser } from '@/exchanges/probit.ts';
 
 import { eventEmitter, EVENTS } from '@/utils/events';
-import type { Candle, OrderBookTypes } from '@/utils/types';
+import {type Candle, type OrderBookTypes, PROBIT_INTERVAL_MAP} from '@/utils/types';
 
 export default function WebSocketComponent() {
 	const candlestickDataRef = useRef<Candle[]>([]);
@@ -13,6 +13,8 @@ export default function WebSocketComponent() {
 	const bidsRef = useRef<Map<number, { price: number; amount: number; total: number }>>(new Map());
 	const asksRef = useRef<Map<number, { price: number; amount: number; total: number }>>(new Map());
 	const parserRef = useRef<any>(BinanceSocketParser);
+	const currentIntervalRef = useRef<string>("1m");
+	const currentExchangeRef = useRef<string>("BINANCE");
 
 	const clearConnect = () => {
 		if (wsRef.current) {
@@ -93,6 +95,8 @@ export default function WebSocketComponent() {
 	useEffect(() => {
 		const handleConnectionChange = ({ wsUrl, exchange, pair, interval }: { wsUrl: string, exchange: string, pair: string, interval: string } ) => {
 			clearConnect();
+			currentIntervalRef.current = interval;
+			currentExchangeRef.current = exchange;
 
 			switch (exchange) {
 				case "BINANCE": {
@@ -118,15 +122,14 @@ export default function WebSocketComponent() {
 				const msg = await parser.sub_msg(pair, interval)
 				ws.send(msg);
 
-				parser.startPing(ws);
-
-				// if (exchange === "PROBIT" && parser.fetchCandles) {
-				// 	const candles = await parser.fetchCandles(pair, "1m");
-				// 	if (candles?.length) {
-				// 		candlestickDataRef.current = candles;
-				// 		eventEmitter.emit(EVENTS.CANDLES_UPDATE, candles);
-				// 	}
-				// }
+				if (exchange === "PROBIT" && parser.fetchCandles) {
+					const probitType = PROBIT_INTERVAL_MAP[interval] || "1min";
+					const candles = await parser.fetchCandles(pair, { type: probitType, limit: 100 });
+					if (candles?.length) {
+						candlestickDataRef.current = candles;
+						eventEmitter.emit(EVENTS.CANDLES_UPDATE, { type: 'init', candles });
+					}
+				}
 			};
 
 			ws.onmessage = async (event) => {

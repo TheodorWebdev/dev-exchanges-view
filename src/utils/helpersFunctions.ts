@@ -12,26 +12,3 @@ export function updateOrderBookLevels(
         }
     }
 }
-
-export function detectMessageType(msg: any): MessageType {
-    // Bybit
-    if (msg.topic && (msg.topic.includes('kline') || msg.topic.includes('orderbook'))) {
-        return msg.topic.includes('kline') ? 'kline' : 'orderbook';
-    }
-
-    // Binance
-    if (msg.asks || msg.e === 'kline') {
-        return msg.e === 'kline' ? 'kline' : 'orderbook';
-    }
-
-    //Probit
-    if (msg.channel === 'marketdata' && Array.isArray(msg.order_books)) {
-        return 'orderbook';
-    }
-
-    if (msg.channel === 'candlestick' && Array.isArray(msg.data)) {
-        return 'kline';
-    }
-
-    return 'unknown';
-}

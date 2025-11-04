@@ -20,9 +20,23 @@ export interface Candle {
     close: number;
 }
 
-
 export interface ProbitOrder {
     side: 'buy' | 'sell';
     price: string;
     quantity: string;
 }
+
+export interface FetchCandlesOptions {
+    type?: string;
+    limit?: number;
+    start?: number;
+    end?: number;
+}
+
+export const PROBIT_INTERVAL_MAP: Record<string, string> = {
+    "1m": "1min",
+    "5m": "5min",
+    "15m": "15min",
+    "1h": "1hour",
+    "1d": "1day",
+};

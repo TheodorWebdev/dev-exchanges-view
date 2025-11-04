@@ -1,5 +1,5 @@
 import { EXCHANGES } from "@/utils/exchanges.ts";
-import type { Candle, ParsedOB, ProbitOrder } from "@/utils/types.ts";
+import type { Candle, FetchCandlesOptions, ParsedOB, ProbitOrder } from "@/utils/types.ts";
 
 export class ProbitSocketParser {
     public readonly exchangeId = EXCHANGES.PROBIT;
@@ -28,40 +28,6 @@ export class ProbitSocketParser {
             filter: ["ticker", "order_books"]
         });
     };
-
-    // // на свечи
-    // async fetchCandles(pair: string, interval = "1m", limit = 100) {
-    //     try {
-    //         const pairObj = PAIRS.find(p => p.symbol.replace("/", "").toUpperCase() === pair.replace("/", "").toUpperCase());
-
-    //         const symbol = pairObj
-    //             ? `${pairObj.base}-${pairObj.quote}`.toUpperCase()
-    //             : pair.replace("/", "-").toUpperCase();
-
-    //         const end = new Date();
-    //         const start = new Date(end.getTime() - 60 * 60 * 1000);
-
-    //         const url = `https://api.probit.com/api/exchange/v1/candle?market_ids=${symbol}&start_time=${encodeURIComponent(start.toISOString())}&end_time=${encodeURIComponent(end.toISOString())}&interval=${interval}&sort=asc&limit=${limit}`;
-
-    //         const options = {
-    //             method: "GET",
-    //             headers: { accept: "application/json" }
-    //         };
-
-    //         const res = await fetch(url, options);
-    //         if (!res.ok) {
-    //             throw new Error(`Failed to fetch candles: ${res.status} ${res.statusText}`);
-    //         }
-
-    //         const json = await res.json();
-
-    //         console.log(json);
-    //         return json.data;
-    //     } catch (err) {
-    //         console.error("fetchCandles error:", err);
-    //         return [];
-    //     }
-    // }
 
     unsub_msg = async (pair: string): Promise<string> => {
         const [base, quote] = pair.split('/');
@@ -101,42 +67,126 @@ export class ProbitSocketParser {
         };
     }
 
-    cs_parse = async (_: WebSocket, msg: MessageEvent<any>, pair?: string): Promise<Candle | Candle[] | undefined> => {
-        const message = JSON.parse(msg.data);
+    cs_parse = async (
+        _: WebSocket,
+        msg: MessageEvent<any>,
+        pair?: string,
+        type: string = "5min"
+    ): Promise<Candle | Candle[] | undefined> => {
+        try {
+            const message = JSON.parse(msg.data);
 
-        if (message?.type === "pong" || message?.op === "pong") return;
+            if (message?.type === "pong" || message?.op === "pong") return;
 
-        const data = message?.data;
+            let klineData: Candle[] = [];
 
-        // Если пришли свечи через WebSocket
-        if (Array.isArray(data)) {
-            const candle = data[data.length - 1];
-            if (!candle) return;
+            if (Array.isArray(message?.data) && message.data.length) {
+                klineData = message.data.map((candle: any) => {
+                    const ts = new Date(candle.start_time);
+                    const time = Math.floor(ts.getTime() / 1000);
 
-            return {
-                time: candle.start / 1000,
-                open: Number(candle.open),
-                high: Number(candle.high),
-                low: Number(candle.low),
-                close: Number(candle.close),
+                    return {
+                        time,
+                        open: +candle.open,
+                        high: +candle.high,
+                        low: +candle.low,
+                        close: +candle.close,
+                    };
+                });
             }
+
+            else if (pair) {
+                const candles = await this.fetchCandles(pair, { type, limit: 100 });
+                klineData = candles || [];
+            }
+
+            if (klineData.length > 1) {
+                return klineData;
+            }
+
+            if (klineData.length === 1) {
+                return klineData[0];
+            }
+
+            return undefined;
+
+        } catch (err) {
+            console.error("cs_parse error:", err);
+            return undefined;
         }
+    };
 
-        if (pair) {
-            try {
-                const candles = await this.fetchCandles(pair, "1m", 100);
-                return candles.map(c => ({
-                    time: new Date(c.start).getTime() / 1000,
-                    open: Number(c.open),
-                    high: Number(c.high),
-                    low: Number(c.low),
-                    close: Number(c.close),
-                }));
-            } catch (err) {
-                console.error("fetchCandles error in cs_parse:", err);
-                return [];
-            }
+    // на свечи
+    async fetchCandles(pair: string, meta: FetchCandlesOptions = { type: "5min", limit: 100 }) {
+        try {
+            const { type = "5min", limit = 100 } = meta;
+            let { start, end } = meta;
+
+            const types: Record<string, string> = {
+                "1min": "1m",
+                "5min": "5m",
+                "15min": "15m",
+                "30min": "30m",
+                "1hour": "1h",
+                "4hour": "4h",
+                "1day": "1D",
+                "1week": "1W",
+            };
+
+            const weights: Record<string, number> = {
+                "1min": 60 * 1000,
+                "5min": 5 * 60 * 1000,
+                "15min": 15 * 60 * 1000,
+                "30min": 30 * 60 * 1000,
+                "1hour": 60 * 60 * 1000,
+                "4hour": 4 * 60 * 60 * 1000,
+                "1day": 24 * 60 * 60 * 1000,
+                "1week": 7 * 24 * 60 * 60 * 1000,
+            };
+
+            const intervalMs = weights[type] ?? weights["5min"];
+            start = start ?? Date.now() - limit * intervalMs;
+            end = end ?? Date.now();
+
+            // находим пару
+
+            const [base, quote] = pair.split('/');
+            const marketId = `${base}-${quote}`;
+
+            // используем прокси вместо прямого хоста
+            const url = new URL(`/probit-api/api/exchange/v1/candle`, window.location.origin);
+            url.searchParams.append("market_ids", marketId);
+            url.searchParams.append("start_time", new Date(start).toISOString());
+            url.searchParams.append("end_time", new Date(end).toISOString());
+            url.searchParams.append("interval", types[type] ?? "5m");
+            url.searchParams.append("sort", "asc");
+            url.searchParams.append("limit", limit.toString());
+
+            const res = await fetch(url.toString(), { method: "GET", headers: { accept: "application/json" } });
+            if (!res.ok) throw new Error(`Failed to fetch candles: ${res.status} ${res.statusText}`);
+
+            const json = await res.json();
+            const klineData = (json.data ?? []).map((line: any) => {
+                const ts = new Date(line.start_time);
+                const time = Math.floor(ts.getTime() / 1000);
+
+                return {
+                    time,
+                    open: +line.open,
+                    high: +line.high,
+                    low: +line.low,
+                    close: +line.close,
+                };
+            });
+
+            console.log(klineData);
+            return klineData;
+
+        } catch (err) {
+            console.error("fetchCandles error:", err);
+            return [];
         }
     }
+
 
 }
