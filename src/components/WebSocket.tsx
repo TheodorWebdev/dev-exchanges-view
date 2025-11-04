@@ -6,14 +6,13 @@ import { ProbitSocketParser } from '@/exchanges/probit.ts';
 
 import { eventEmitter, EVENTS } from '@/utils/events';
 import type { Candle, OrderBookTypes } from '@/utils/types';
-import { detectMessageType } from '@/utils/helpersFunctions'
 
 export default function WebSocketComponent() {
 	const candlestickDataRef = useRef<Candle[]>([]);
 	const wsRef = useRef<WebSocket | null>(null);
 	const bidsRef = useRef<Map<number, { price: number; amount: number; total: number }>>(new Map());
 	const asksRef = useRef<Map<number, { price: number; amount: number; total: number }>>(new Map());
-	const parserRef = useRef<any>(null);
+	const parserRef = useRef<any>(BinanceSocketParser);
 
 	const clearConnect = () => {
 		if (wsRef.current) {
@@ -117,7 +116,9 @@ export default function WebSocketComponent() {
 				console.log("[WS] Cоединение создано");
 
 				const msg = await parser.sub_msg(pair, interval)
-				ws.send(msg);``
+				ws.send(msg);
+
+				parser.startPing(ws);
 
 				// if (exchange === "PROBIT" && parser.fetchCandles) {
 				// 	const candles = await parser.fetchCandles(pair, "1m");
@@ -129,33 +130,25 @@ export default function WebSocketComponent() {
 			};
 
 			ws.onmessage = async (event) => {
-				const msgType = detectMessageType(JSON.parse(event.data));
+				const isPongMsg = await parserRef.current.pong(ws, event);
+				if (isPongMsg) return;
+				
+				const ob_parsed = await parserRef.current.ob_parse(ws, event);
 
-				switch (msgType) {
-					case "orderbook": {
-						const ob_parsed = await parserRef.current.ob_parse(ws, event);
-						if (!ob_parsed) return;
+				if (!ob_parsed) {
+					const cs_parsed = await parserRef.current.cs_parse(ws, event);
+					if (!cs_parsed) return
 
-						updateOrderBook(ob_parsed);
-						break;
-					}
-					case "kline": {
-						const cs_parsed = await parserRef.current.cs_parse(ws, event);
-						if (!cs_parsed) return;
-
-						if (Array.isArray(cs_parsed)) {
-							// если это массив (исторические свечи)
-							candlestickDataRef.current = cs_parsed;
-						} else {
-							// если это одна свеча (новая)
-							updateCandleStick(cs_parsed);
-						}
-						break;
-					}
+					updateCandleStick(cs_parsed);
+				}
+				else {
+					updateOrderBook(ob_parsed);
 				}
 			};
 
 			ws.onclose = (event) => {
+				parser.stopPing();
+				
 				if (event.wasClean) {
 					console.log(`[close] Соединение закрыто чисто, код=${event.code}`);
 				} else {
@@ -184,7 +177,7 @@ export default function WebSocketComponent() {
 
 	// Периодическая отправка событий с определённым интервалом
 	useEffect(() => {
-		const updateInterval = 500;
+		const updateInterval = 1000;
 
 		const candlesInterval = setInterval(() => {
 			// Инициализация событий: candlestick data

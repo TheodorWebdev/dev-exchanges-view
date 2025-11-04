@@ -8,15 +8,20 @@ import { EXCHANGES } from "@/utils/exchanges.ts";
 export class BinanceSocketParser {
     public readonly exchangeId = EXCHANGES.BINANCE;
 
-    get ping() {
-        return "";
-    };
-
-    get pingInterval() {
-        return 15_000;
-    };
+    private pingIntervalId: number | null = null;
 
     constructor() { };
+
+    startPing = () => { };
+
+    stopPing = () => {
+        if (this.pingIntervalId) {
+            clearInterval(this.pingIntervalId);
+            this.pingIntervalId = null;
+        }
+    };
+
+    pong = () => {};
 
     link = async (): Promise<string> => "wss://stream.binance.com:9443/ws";
 
@@ -45,6 +50,8 @@ export class BinanceSocketParser {
     ob_parse = async (_ws: WebSocket, msg: MessageEvent<any>): Promise<ParsedOB | undefined> => {
         const data = JSON.parse(msg.data);
 
+        if (data.method || !data.asks) return;
+
         const parseOrders = (orders?: [string, string][]): OrderBookTypes[] =>
             (orders ?? []).map(([p, a]) => {
                 const price = Number(p);
@@ -52,8 +59,8 @@ export class BinanceSocketParser {
                 return { price, amount, total: price * amount };
             });
 
-        const bidsRaw = data?.bids ?? data?.b;
-        const asksRaw = data?.asks ?? data?.a;
+        const bidsRaw = data?.bids;
+        const asksRaw = data?.asks;
 
         if (!bidsRaw && !asksRaw) return undefined;
 
@@ -64,8 +71,10 @@ export class BinanceSocketParser {
         };
     };
 
-    cs_parse = async (_: WebSocket, msg: MessageEvent<any>): Promise<Candle | undefined> => {
+    cs_parse = async (_ws: WebSocket, msg: MessageEvent<any>): Promise<Candle | undefined> => {
         const message = JSON.parse(msg.data);
+
+        if (message.method || !message.e) return;
 
         const k = message.k;
 

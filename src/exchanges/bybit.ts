@@ -9,15 +9,32 @@ import { EXCHANGES, INTERVAL_1M, INTERVAL_5M, INTERVAL_15M, INTERVAL_1H, INTERVA
 export class BybitSocketParser {
     public readonly exchangeId = EXCHANGES.BYBIT;
 
-    get ping() {
-        return "";
-    };
-
-    get pingInterval() {
-        return 15_000;
-    };
+    private pingIntervalId: number | null = null;
 
     constructor() { };
+
+    startPing(_ws: WebSocket) {
+        this.pingIntervalId = window.setInterval(() => {
+            if (_ws.readyState === WebSocket.OPEN) {
+                _ws.send(JSON.stringify({ op: 'ping' }));
+            }
+        }, 20_000);
+    };
+
+    stopPing() {
+        if (this.pingIntervalId) {
+            clearInterval(this.pingIntervalId);
+            this.pingIntervalId = null;
+        }
+    };
+
+    pong = async (_ws: WebSocket, msg: MessageEvent<any>): Promise<boolean | undefined> => {
+        const data = JSON.parse(msg.data);
+
+        if (data.ret_msg === 'pong') return true;
+
+        return false;
+    }
 
     link = async (): Promise<string> => "wss://stream.bybit.com/v5/public/spot";
 
@@ -51,10 +68,10 @@ export class BybitSocketParser {
         });
     };
     
-    ob_parse = async (_: WebSocket, msg: MessageEvent<any>): Promise<ParsedOB | undefined> => {
+    ob_parse = async (_ws: WebSocket, msg: MessageEvent<any>): Promise<ParsedOB | undefined> => {
         const data = JSON.parse(msg.data);
 
-        if (data.ret_msg === "pong") return;
+        if (data.ret_msg || !data.topic.includes('orderbook')) return;
 
         const parseOrders = (orders?: [string, string][]): OrderBookTypes[] => (
             orders ?? []).map(([p, a]) => {
@@ -76,13 +93,13 @@ export class BybitSocketParser {
         };
     };
 
-    cs_parse = async (_: WebSocket, msg: MessageEvent<any>): Promise<Candle | undefined> => {
+    cs_parse = async (_ws: WebSocket, msg: MessageEvent<any>): Promise<Candle | undefined> => {
         const message = JSON.parse(msg.data);
+
+        if (message.ret_msg || !message.topic.includes('orderbook')) return;
 
         const data = message.data;
         const candle = data[0];
-
-        if (data.ret_msg === "pong") return;
 
         return {
             time: candle.start / 1000,
