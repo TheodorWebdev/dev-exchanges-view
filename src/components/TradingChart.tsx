@@ -7,7 +7,6 @@ import type { ISeriesApi, CandlestickData, HistogramData, UTCTimestamp } from 'l
 
 import { eventEmitter, EVENTS } from '@/utils/events'
 import type { Candle } from '@/utils/types'
-import { loadHistory } from '@/utils/helpersFunctions';
 
 type CandlestickSeries = ISeriesApi<'Candlestick'>;
 type VolumeSeries = ISeriesApi<'Histogram'>;
@@ -68,7 +67,7 @@ export default function TradingChart() {
 						high: Number(high),
 						low: Number(low),
 						close: Number(close),
-					})).sort((a, b) => a.time - b.time);
+					})).sort((a: CandlestickData, b: CandlestickData) => (a.time as number) - (b.time as number));
 
 					candleSeries.setData(candles);
 				}
@@ -79,17 +78,31 @@ export default function TradingChart() {
 
 		loadHistory();
 
-		// Подписываемся на обновления свечей
-		const candlesUpdateHandler = (newCandle: Candle) => {
-			const chartData: CandlestickData = {
-				time: newCandle.time as UTCTimestamp,
-				open: newCandle.open,
-				high: newCandle.high,
-				low: newCandle.low,
-				close: newCandle.close,
-			};
+		const candlesUpdateHandler = (data: Candle | { type: 'init', candles: Candle[] }) => {
+			if (typeof data === 'object' && 'type' in data && data.type === 'init' && Array.isArray(data.candles)) {
+				const candles = data.candles.map(candle => ({
+					time: candle.time as UTCTimestamp,
+					open: candle.open,
+					high: candle.high,
+					low: candle.low,
+					close: candle.close,
+				})).sort((a: CandlestickData, b: CandlestickData) => (a.time as number) - (b.time as number));
+				candleSeries.setData(candles);
+				return;
+			}
 
-			candleSeries.update(chartData);
+			const newCandle = data as Candle;
+			if (newCandle) {
+				const chartData: CandlestickData = {
+					time: newCandle.time as UTCTimestamp,
+					open: newCandle.open,
+					high: newCandle.high,
+					low: newCandle.low,
+					close: newCandle.close,
+				};
+
+				candleSeries.update(chartData);
+			}
 		};
 
 		eventEmitter.on(EVENTS.CANDLES_UPDATE, candlesUpdateHandler);

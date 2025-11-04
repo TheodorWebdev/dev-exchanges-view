@@ -5,7 +5,7 @@ import { BybitSocketParser } from '@/exchanges/bybit';
 import { ProbitSocketParser } from '@/exchanges/probit.ts';
 
 import { eventEmitter, EVENTS } from '@/utils/events';
-import type { Candle, OrderBookTypes } from '@/utils/types';
+import {type Candle, type OrderBookTypes, PROBIT_INTERVAL_MAP} from '@/utils/types';
 import { detectMessageType } from '@/utils/helpersFunctions'
 
 export default function WebSocketComponent() {
@@ -14,6 +14,8 @@ export default function WebSocketComponent() {
 	const bidsRef = useRef<Map<number, { price: number; amount: number; total: number }>>(new Map());
 	const asksRef = useRef<Map<number, { price: number; amount: number; total: number }>>(new Map());
 	const parserRef = useRef<any>(null);
+	const currentIntervalRef = useRef<string>("1m");
+	const currentExchangeRef = useRef<string>("BINANCE");
 
 	const clearConnect = () => {
 		if (wsRef.current) {
@@ -94,6 +96,8 @@ export default function WebSocketComponent() {
 	useEffect(() => {
 		const handleConnectionChange = ({ wsUrl, exchange, pair, interval }: { wsUrl: string, exchange: string, pair: string, interval: string } ) => {
 			clearConnect();
+			currentIntervalRef.current = interval;
+			currentExchangeRef.current = exchange;
 
 			switch (exchange) {
 				case "BINANCE": {
@@ -120,10 +124,11 @@ export default function WebSocketComponent() {
 				ws.send(msg);
 
 				if (exchange === "PROBIT" && parser.fetchCandles) {
-					const candles = await parser.fetchCandles(pair, "1m");
+					const probitType = PROBIT_INTERVAL_MAP[interval] || "1min";
+					const candles = await parser.fetchCandles(pair, { type: probitType, limit: 100 });
 					if (candles?.length) {
 						candlestickDataRef.current = candles;
-						eventEmitter.emit(EVENTS.CANDLES_UPDATE, candles);
+						eventEmitter.emit(EVENTS.CANDLES_UPDATE, { type: 'init', candles });
 					}
 				}
 			};
@@ -140,16 +145,22 @@ export default function WebSocketComponent() {
 						break;
 					}
 					case "kline": {
-						const cs_parsed = await parserRef.current.cs_parse(ws, event);
+						// Для PROBIT передаем интервал
+						let cs_parsed;
+
+						if (currentExchangeRef.current === "PROBIT") {
+							const probitType = PROBIT_INTERVAL_MAP[currentIntervalRef.current] || "1min";
+							cs_parsed = await parserRef.current.cs_parse(ws, event, pair, undefined, probitType);
+						} else {
+							cs_parsed = await parserRef.current.cs_parse(ws, event);
+						}
+
 						if (!cs_parsed) return;
 
-						console.log(cs_parsed)
-
 						if (Array.isArray(cs_parsed)) {
-							// если это массив (исторические свечи)
 							candlestickDataRef.current = cs_parsed;
+							eventEmitter.emit(EVENTS.CANDLES_UPDATE, { type: 'init', candles: cs_parsed });
 						} else {
-							// если это одна свеча (новая)
 							updateCandleStick(cs_parsed);
 						}
 						break;

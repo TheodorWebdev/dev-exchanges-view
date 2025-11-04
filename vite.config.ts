@@ -10,4 +10,13 @@ export default defineConfig({
       '@': resolve(__dirname, 'src'),
     },
   },
+  server: {
+    proxy: {
+      '/probit-api': {
+        target: 'https://api.probit.com',
+        changeOrigin: true,
+        rewrite: path => path.replace(/^\/probit-api/, ''),
+      },
+    },
+  },
 })
