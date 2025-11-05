@@ -21,7 +21,7 @@ export class ProbitSocketParser {
 
     link = async (): Promise<string> => "wss://api.probit.com/api/exchange/v1/ws";
 
-    sub_msg = async (pair: string): Promise<string> => {
+    sub_msg = async (pair: string, interval: string): Promise<string> => {
         const [base, quote] = pair.split('/');
         const marketId = `${base}-${quote}`;
 
@@ -30,11 +30,14 @@ export class ProbitSocketParser {
             channel: "marketdata",
             interval: 100,
             market_id: marketId,
-            filter: ["ticker", "order_books"]
+            filter: [
+                "order_books",
+                `candles_${interval}`
+            ]
         });
     };
 
-    unsub_msg = async (pair: string): Promise<string> => {
+    unsub_msg = async (pair: string, interval: string): Promise<string> => {
         const [base, quote] = pair.split('/');
         const marketId = `${base}-${quote}`;
         
@@ -42,7 +45,10 @@ export class ProbitSocketParser {
             type: "unsubscribe",
             channel: "marketdata",
             market_id: marketId,
-            filter: ["ticker", "order_books"]
+            filter: [
+                "order_books",
+                `candles_${interval}`
+            ]
         });
     };
 

@@ -5,7 +5,7 @@ import { BybitSocketParser } from '@/exchanges/bybit';
 import { ProbitSocketParser } from '@/exchanges/probit.ts';
 
 import { eventEmitter, EVENTS } from '@/utils/events';
-import { type Candle, type OrderBookTypes, PROBIT_INTERVAL_MAP } from '@/utils/types';
+import {type Candle, type OrderBookTypes} from '@/utils/types';
 
 export default function WebSocketComponent() {
 	const candlestickDataRef = useRef<Candle[]>([]);
@@ -131,15 +131,6 @@ export default function WebSocketComponent() {
 						}
 					} catch (error) {
 						console.error('Error: ', error);
-					}
-				}
-
-				if (exchange === "PROBIT" && parser.fetchCandles) {
-					const probitType = PROBIT_INTERVAL_MAP[interval] || "1min";
-					const candles = await parser.fetchCandles(pair, { type: probitType, limit: 100 });
-					if (candles?.length) {
-						candlestickDataRef.current = candles;
-						eventEmitter.emit(EVENTS.CANDLES_UPDATE, { type: 'init', candles });
 					}
 				}
 			};
