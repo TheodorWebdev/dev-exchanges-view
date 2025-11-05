@@ -32,11 +32,3 @@ export interface FetchCandlesOptions {
     start?: number;
     end?: number;
 }
-
-export const PROBIT_INTERVAL_MAP: Record<string, string> = {
-    "1m": "1min",
-    "5m": "5min",
-    "15m": "15min",
-    "1h": "1hour",
-    "1d": "1day",
-};

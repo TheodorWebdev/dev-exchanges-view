@@ -1,5 +1,5 @@
 import { EXCHANGES } from "@/utils/exchanges.ts";
-import type { Candle, FetchCandlesOptions, ParsedOB, ProbitOrder } from "@/utils/types.ts";
+import type { Candle, ParsedOB, ProbitOrder } from "@/utils/types.ts";
 
 export class ProbitSocketParser {
     public readonly exchangeId = EXCHANGES.PROBIT;
@@ -21,7 +21,7 @@ export class ProbitSocketParser {
 
     link = async (): Promise<string> => "wss://api.probit.com/api/exchange/v1/ws";
 
-    sub_msg = async (pair: string, interval: string): Promise<string> => {
+    sub_msg = async (pair: string): Promise<string> => {
         const [base, quote] = pair.split('/');
         const marketId = `${base}-${quote}`;
 
@@ -32,12 +32,11 @@ export class ProbitSocketParser {
             market_id: marketId,
             filter: [
                 "order_books",
-                `candles_${interval}`
             ]
         });
     };
 
-    unsub_msg = async (pair: string, interval: string): Promise<string> => {
+    unsub_msg = async (pair: string): Promise<string> => {
         const [base, quote] = pair.split('/');
         const marketId = `${base}-${quote}`;
         
@@ -47,7 +46,6 @@ export class ProbitSocketParser {
             market_id: marketId,
             filter: [
                 "order_books",
-                `candles_${interval}`
             ]
         });
     };
@@ -78,124 +76,58 @@ export class ProbitSocketParser {
         };
     }
 
-    cs_parse = async (
-        _: WebSocket,
-        msg: MessageEvent<any>,
-        pair?: string,
-        type: string = "5min"
-    ): Promise<Candle | Candle[] | undefined> => {
-        try {
-            const message = JSON.parse(msg.data);
+    cs_parse = async (_ws: WebSocket, msg: MessageEvent<any>): Promise<Candle | undefined> => {
+        const message = JSON.parse(msg.data);
 
-            if (message?.type === "pong" || message?.op === "pong") return;
+        if (!Array.isArray(message?.data) || !message.data.length) return;
 
-            let klineData: Candle[] = [];
+        const data = message.data;
+        const candle = data[0];
 
-            if (Array.isArray(message?.data) && message.data.length) {
-                klineData = message.data.map((candle: any) => {
-                    const ts = new Date(candle.start_time);
-                    const time = Math.floor(ts.getTime() / 1000);
+        console.log(candle)
 
-                    return {
-                        time,
-                        open: +candle.open,
-                        high: +candle.high,
-                        low: +candle.low,
-                        close: +candle.close,
-                    };
-                });
-            }
-
-            else if (pair) {
-                const candles = await this.fetchCandles(pair, { type, limit: 100 });
-                klineData = candles || [];
-            }
-
-            if (klineData.length > 1) {
-                return klineData;
-            }
-
-            if (klineData.length === 1) {
-                return klineData[0];
-            }
-
-            return undefined;
-
-        } catch (err) {
-            console.error("cs_parse error:", err);
-            return undefined;
+        return {
+            time: candle.start / 1000,
+            open: Number(candle.open),
+            high: Number(candle.high),
+            low: Number(candle.low),
+            close: Number(candle.close),
         }
     };
 
-    // на свечи
-    async fetchCandles(pair: string, meta: FetchCandlesOptions = { type: "5min", limit: 100 }) {
-        try {
-            const { type = "5min", limit = 100 } = meta;
-            let { start, end } = meta;
+    cs_loadhistory = async (_ws: WebSocket, pair: string, interval: string, limit = 100): Promise<Candle[] | undefined> => {
+        const [base, quote] = pair.split('/');
+        const marketId = `${base}-${quote}`;
 
-            const types: Record<string, string> = {
-                "1min": "1m",
-                "5min": "5m",
-                "15min": "15m",
-                "30min": "30m",
-                "1hour": "1h",
-                "4hour": "4h",
-                "1day": "1D",
-                "1week": "1W",
-            };
+        const types: Record<string, string> = {
+            "1min": "1m",
+            "5min": "5m",
+            "15min": "15m",
+            "30min": "30m",
+            "1hour": "1h",
+            "4hour": "4h",
+            "1day": "1D",
+            "1week": "1W",
+        };
 
-            const weights: Record<string, number> = {
-                "1min": 60 * 1000,
-                "5min": 5 * 60 * 1000,
-                "15min": 15 * 60 * 1000,
-                "30min": 30 * 60 * 1000,
-                "1hour": 60 * 60 * 1000,
-                "4hour": 4 * 60 * 60 * 1000,
-                "1day": 24 * 60 * 60 * 1000,
-                "1week": 7 * 24 * 60 * 60 * 1000,
-            };
+        const now = Date.now();
+        const intervalMs = 5 * 60 * 1000;
+        const start = new Date(now - limit * intervalMs).toISOString();
+        const end = new Date(now).toISOString();
 
-            const intervalMs = weights[type] ?? weights["5min"];
-            start = start ?? Date.now() - limit * intervalMs;
-            end = end ?? Date.now();
+        const url = `http://localhost:5173/probit-api/api/exchange/v1/candle?market_ids=${marketId}&interval=${types[interval] ?? "5m"}&start_time=${start}&end_time=${end}&limit=${limit}&sort=asc`;
 
-            // находим пару
+        const res = await fetch(url, { headers: { accept: "application/json" } });
+        const json = await res.json();
 
-            const [base, quote] = pair.split('/');
-            const marketId = `${base}-${quote}`;
+        console.log(json)
 
-            // используем прокси вместо прямого хоста
-            const url = new URL(`/probit-api/api/exchange/v1/candle`, window.location.origin);
-            url.searchParams.append("market_ids", marketId);
-            url.searchParams.append("start_time", new Date(start).toISOString());
-            url.searchParams.append("end_time", new Date(end).toISOString());
-            url.searchParams.append("interval", types[type] ?? "5m");
-            url.searchParams.append("sort", "asc");
-            url.searchParams.append("limit", limit.toString());
-
-            const res = await fetch(url.toString(), { method: "GET", headers: { accept: "application/json" } });
-            if (!res.ok) throw new Error(`Failed to fetch candles: ${res.status} ${res.statusText}`);
-
-            const json = await res.json();
-            const klineData = (json.data ?? []).map((line: any) => {
-                const ts = new Date(line.start_time);
-                const time = Math.floor(ts.getTime() / 1000);
-
-                return {
-                    time,
-                    open: +line.open,
-                    high: +line.high,
-                    low: +line.low,
-                    close: +line.close,
-                };
-            });
-
-            console.log(klineData);
-            return klineData;
-
-        } catch (err) {
-            console.error("fetchCandles error:", err);
-            return [];
-        }
+        return (json.data ?? []).map((candle: any) => ({
+            time: Math.floor(new Date(candle.start_time).getTime() / 1000),
+            open: +candle.open,
+            high: +candle.high,
+            low: +candle.low,
+            close: +candle.close,
+        }));
     }
 }
