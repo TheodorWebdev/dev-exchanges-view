@@ -79,11 +79,31 @@ export class BinanceSocketParser {
         const k = message.k;
 
         return {
-            time: Number(k.t / 1000),
+            time: Number(k.t) / 1000,
             open: Number(k.o),
             high: Number(k.h),
             low: Number(k.l),
             close: Number(k.c),
         }
+    }
+
+    cs_loadhistory = async (_ws: WebSocket, pair: string, interval: string) => {
+        const [base, quote] = pair.split('/').map(s => s.toUpperCase());
+        const marketId = `${base}${quote}`;
+
+        const response = await fetch(
+            `https://api.binance.com/api/v3/klines?symbol=${marketId}&interval=${interval}&limit=200`
+        );
+        const data: any[] = await response.json();
+
+        const candles: Candle[] = data.map(item => ({
+            time: Number(item[0]) / 1000,
+            open: Number(item[1]),
+            high: Number(item[2]),
+            low: Number(item[3]),
+            close: Number(item[4]),
+        }));
+
+        return candles;
     }
 }

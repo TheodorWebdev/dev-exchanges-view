@@ -1,4 +1,4 @@
-import type { OrderBookTypes, MessageType } from "@/utils/types.ts";
+import type { OrderBookTypes } from "@/utils/types.ts";
 
 export function updateOrderBookLevels(
     map: Map<number, OrderBookTypes>,

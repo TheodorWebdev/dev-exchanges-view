@@ -4,15 +4,20 @@ import type { Candle, FetchCandlesOptions, ParsedOB, ProbitOrder } from "@/utils
 export class ProbitSocketParser {
     public readonly exchangeId = EXCHANGES.PROBIT;
 
-    get ping() {
-        return JSON.stringify({ type: "ping" });
-    };
-
-    get pingInterval() {
-        return 15_000;
-    };
+    private pingIntervalId: number | null = null;
 
     constructor() { };
+
+    startPing = () => { };
+
+    stopPing = () => {
+        if (this.pingIntervalId) {
+            clearInterval(this.pingIntervalId);
+            this.pingIntervalId = null;
+        }
+    };
+
+    pong = () => {};
 
     link = async (): Promise<string> => "wss://api.probit.com/api/exchange/v1/ws";
 
@@ -187,6 +192,4 @@ export class ProbitSocketParser {
             return [];
         }
     }
-
-
 }

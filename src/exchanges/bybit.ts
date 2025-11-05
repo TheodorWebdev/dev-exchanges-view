@@ -5,6 +5,7 @@ import type {
 } from "@/utils/types";
 
 import { EXCHANGES, INTERVAL_1M, INTERVAL_5M, INTERVAL_15M, INTERVAL_1H, INTERVAL_1D } from "@/utils/exchanges.ts";
+import type { CandlestickData } from 'lightweight-charts';
 
 export class BybitSocketParser {
     public readonly exchangeId = EXCHANGES.BYBIT;
@@ -96,7 +97,7 @@ export class BybitSocketParser {
     cs_parse = async (_ws: WebSocket, msg: MessageEvent<any>): Promise<Candle | undefined> => {
         const message = JSON.parse(msg.data);
 
-        if (message.ret_msg || !message.topic.includes('orderbook')) return;
+        if (message.ret_msg || !message.topic.includes('kline')) return;
 
         const data = message.data;
         const candle = data[0];
@@ -107,6 +108,29 @@ export class BybitSocketParser {
             high: Number(candle.high),
             low: Number(candle.low),
             close: Number(candle.close),
+        }
+    };
+
+    cs_loadhistory = async (_ws: WebSocket, pair: string, interval: string): Promise<Candle[] | undefined> => {
+        const [base, quote] = pair.split('/');
+        const marketId = `${base}${quote}`;
+        const i = this.intervalMap[interval];
+
+        const response = await fetch(
+            `https://api.bybit.com/v5/market/kline?category=spot&symbol=${marketId}&interval=${i}&limit=200`
+        );
+        const data = await response.json();
+
+        if (data.retCode === 0) {
+            const candles: Candle[] = data.result.list.map(([time, open, high, low, close]: [string, string, string, string, string]) => ({
+                time: Number(time) / 1000,
+                open: Number(open),
+                high: Number(high),
+                low: Number(low),
+                close: Number(close),
+            })).sort((a: CandlestickData, b: CandlestickData) => (a.time as number) - (b.time as number));
+
+            return candles;
         }
     }
 }
