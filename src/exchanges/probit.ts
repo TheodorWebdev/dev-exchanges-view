@@ -4,19 +4,36 @@ import type { Candle, FetchCandlesOptions, ParsedOB, ProbitOrder } from "@/utils
 export class ProbitSocketParser {
     public readonly exchangeId = EXCHANGES.PROBIT;
 
-    get ping() {
-        return JSON.stringify({ type: "ping" });
-    };
-
-    get pingInterval() {
-        return 15_000;
-    };
+    private pingIntervalId: number | null = null;
 
     constructor() { };
 
+    startPing(_ws: WebSocket) {
+        this.pingIntervalId = window.setInterval(() => {
+            if (_ws.readyState === WebSocket.OPEN) {
+                _ws.send(JSON.stringify({ op: 'ping' }));
+            }
+        }, 20_000);
+    };
+
+    stopPing() {
+        if (this.pingIntervalId) {
+            clearInterval(this.pingIntervalId);
+            this.pingIntervalId = null;
+        }
+    };
+
+    pong = async (_ws: WebSocket, msg: MessageEvent<any>): Promise<boolean | undefined> => {
+        const data = JSON.parse(msg.data);
+
+        if (data.ret_msg === 'pong') return true;
+
+        return false;
+    }
+
     link = async (): Promise<string> => "wss://api.probit.com/api/exchange/v1/ws";
 
-    sub_msg = async (pair: string): Promise<string> => {
+    sub_msg = async (pair: string, interval: string): Promise<string> => {
         const [base, quote] = pair.split('/');
         const marketId = `${base}-${quote}`;
 
@@ -25,11 +42,14 @@ export class ProbitSocketParser {
             channel: "marketdata",
             interval: 100,
             market_id: marketId,
-            filter: ["ticker", "order_books"]
+            filter: [
+                "order_books",
+                `candles_${interval}`
+            ]
         });
     };
 
-    unsub_msg = async (pair: string): Promise<string> => {
+    unsub_msg = async (pair: string, interval: string): Promise<string> => {
         const [base, quote] = pair.split('/');
         const marketId = `${base}-${quote}`;
         
@@ -37,7 +57,10 @@ export class ProbitSocketParser {
             type: "unsubscribe",
             channel: "marketdata",
             market_id: marketId,
-            filter: ["ticker", "order_books"]
+            filter: [
+                "order_books",
+                `candles_${interval}`
+            ]
         });
     };
 
