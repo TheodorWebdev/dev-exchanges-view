@@ -76,6 +76,10 @@ export default function WebSocketComponent() {
 	const updateCandleStick = (parsed_msg: any) => {
 		const prevCandle = candlestickDataRef.current[candlestickDataRef.current.length - 1];
 
+		if (prevCandle && parsed_msg.time < prevCandle.time) {
+			return;
+		}
+
 		if (prevCandle && prevCandle.time === parsed_msg.time) {
 			candlestickDataRef.current = [
 				...candlestickDataRef.current.slice(0, -1),

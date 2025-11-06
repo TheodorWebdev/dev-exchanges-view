@@ -78,7 +78,7 @@ export class ProbitSocketParser {
         };
     }
 
-    private tradeBuffer: Record<number, { open: number, high: number, low: number, close: number }> = {};
+    private tradeBuffer: Record<number, {time: number, open: number, high: number, low: number, close: number }> = {};
     private intervalMs = 60 * 1000;
 
     cs_parse = async (_ws: WebSocket, msg: MessageEvent<any>): Promise<Candle | undefined> => {
@@ -100,6 +100,7 @@ export class ProbitSocketParser {
             candle.close = price;
         } else {
             this.tradeBuffer[candleTime] = {
+                time: Math.floor(candleTime / 1000),
                 open: price,
                 high: price,
                 low: price,
@@ -110,7 +111,7 @@ export class ProbitSocketParser {
         const c = this.tradeBuffer[candleTime];
 
         return {
-            time: Math.floor(new Date(candleTime).getTime() / 1000),
+            time: Math.floor(candleTime / 1000),
             open: c.open,
             high: c.high,
             low: c.low,
