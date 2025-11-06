@@ -31,6 +31,7 @@ export class ProbitSocketParser {
             interval: 100,
             market_id: marketId,
             filter: [
+                "recent_trades",
                 "order_books",
             ]
         });
@@ -45,6 +46,7 @@ export class ProbitSocketParser {
             channel: "marketdata",
             market_id: marketId,
             filter: [
+                "recent_trades",
                 "order_books",
             ]
         });
@@ -76,51 +78,72 @@ export class ProbitSocketParser {
         };
     }
 
+    private tradeBuffer: Record<number, { open: number, high: number, low: number, close: number }> = {};
+    private intervalMs = 60 * 1000;
+
     cs_parse = async (_ws: WebSocket, msg: MessageEvent<any>): Promise<Candle | undefined> => {
-        const message = JSON.parse(msg.data);
+        const root = JSON.parse(msg.data);
+        const trades = root?.recent_trades;
 
-        if (!Array.isArray(message?.data) || !message.data.length) return;
+        if (!trades || !Array.isArray(trades) || trades.length === 0) return;
 
-        const data = message.data;
-        const candle = data[0];
+        const firstTrade = trades[0];
+        const price = Number(firstTrade.price);
+        const tradeTime = new Date(firstTrade.time).getTime();
 
-        console.log(candle)
+        const candleTime = Math.floor(tradeTime / this.intervalMs) * this.intervalMs;
+
+        if (this.tradeBuffer[candleTime]) {
+            const candle = this.tradeBuffer[candleTime];
+            candle.high = Math.max(candle.high, price);
+            candle.low = Math.min(candle.low, price);
+            candle.close = price;
+        } else {
+            this.tradeBuffer[candleTime] = {
+                open: price,
+                high: price,
+                low: price,
+                close: price,
+            };
+        }
+
+        const c = this.tradeBuffer[candleTime];
 
         return {
-            time: candle.start / 1000,
-            open: Number(candle.open),
-            high: Number(candle.high),
-            low: Number(candle.low),
-            close: Number(candle.close),
-        }
+            time: Math.floor(new Date(candleTime).getTime() / 1000),
+            open: c.open,
+            high: c.high,
+            low: c.low,
+            close: c.close,
+        };
     };
 
-    cs_loadhistory = async (_ws: WebSocket, pair: string, interval: string, limit = 100): Promise<Candle[] | undefined> => {
+    cs_loadhistory = async (
+        _ws: WebSocket,
+        pair: string,
+        interval: string,
+        limit = 200
+    ): Promise<Candle[] | undefined> => {
         const [base, quote] = pair.split('/');
         const marketId = `${base}-${quote}`;
 
-        const types: Record<string, string> = {
-            "1min": "1m",
-            "5min": "5m",
-            "15min": "15m",
-            "30min": "30m",
-            "1hour": "1h",
-            "4hour": "4h",
-            "1day": "1D",
-            "1week": "1W",
+        const weights: Record<string, number> = {
+            "1m": 60 * 1000,
+            "5m": 5 * 60 * 1000,
+            "15m": 15 * 60 * 1000,
+            "1h": 60 * 60 * 1000,
+            "1d": 24 * 60 * 60 * 1000,
         };
 
         const now = Date.now();
-        const intervalMs = 5 * 60 * 1000;
+        const intervalMs = weights[interval] ?? 5 * 60 * 1000;
         const start = new Date(now - limit * intervalMs).toISOString();
         const end = new Date(now).toISOString();
 
-        const url = `http://localhost:5173/probit-api/api/exchange/v1/candle?market_ids=${marketId}&interval=${types[interval] ?? "5m"}&start_time=${start}&end_time=${end}&limit=${limit}&sort=asc`;
+        const url = `http://localhost:5173/probit-api/api/exchange/v1/candle?market_ids=${marketId}&interval=${interval ?? "5m"}&start_time=${start}&end_time=${end}&limit=${limit}&sort=asc`;
 
         const res = await fetch(url, { headers: { accept: "application/json" } });
         const json = await res.json();
-
-        console.log(json)
 
         return (json.data ?? []).map((candle: any) => ({
             time: Math.floor(new Date(candle.start_time).getTime() / 1000),
@@ -129,5 +152,6 @@ export class ProbitSocketParser {
             low: +candle.low,
             close: +candle.close,
         }));
-    }
+    };
+
 }

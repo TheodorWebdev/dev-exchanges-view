@@ -125,6 +125,7 @@ export default function WebSocketComponent() {
 				if (parser.cs_loadhistory) {
 					try {
 						const history = await parser.cs_loadhistory(ws, pair, interval);
+
 						if (history.length > 0) {
 							candlestickDataRef.current = history;
 							eventEmitter.emit(EVENTS.CANDLES_UPDATE, { type: 'init', candles: history, interval: interval });
@@ -138,17 +139,15 @@ export default function WebSocketComponent() {
 			ws.onmessage = async (event) => {
 				const isPongMsg = await parserRef.current.pong(ws, event);
 				if (isPongMsg) return;
-				
+
 				const ob_parsed = await parserRef.current.ob_parse(ws, event);
-
-				if (!ob_parsed) {
-					const cs_parsed = await parserRef.current.cs_parse(ws, event);
-					if (!cs_parsed) return;
-
-					updateCandleStick(cs_parsed);
-				}
-				else {
+				if (ob_parsed) {
 					updateOrderBook(ob_parsed);
+				}
+
+				const cs_parsed = await parserRef.current.cs_parse(ws, event);
+				if (cs_parsed) {
+					updateCandleStick(cs_parsed);
 				}
 			};
 
