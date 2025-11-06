@@ -9,6 +9,17 @@ export default function OrderBook() {
 	const [orderBookData, setOrderBookData] = useState<{ bids: OrderBookTypes[]; asks: OrderBookTypes[] } | null>(null);
 	const lastChecksumRef = useRef<number | null>(null);
 
+	// Animation loading dots
+	const [loadingDots, setLoadingDots] = useState('');
+
+	useEffect(() => {
+		const interval = setInterval(() => {
+			setLoadingDots(prev => (prev.length >= 3 ? '' : prev + '.'));
+		}, 200);
+
+		return () => clearInterval(interval);
+	}, []);
+
 	useEffect(() => {
 		const updateHandler = (rawData: string) => {
 			const currentChecksum = checksumCRC32(rawData);
@@ -34,7 +45,7 @@ export default function OrderBook() {
 	if (!orderBookData) {
 		return (
 			<Card.Root w="30vw" h="70vh" justifyContent="center" alignItems="center">
-				<Box>Loading...</Box>
+				<Box>Loading{loadingDots}</Box>
 			</Card.Root>
 		)
 	}

@@ -1,16 +1,25 @@
+import { EXCHANGES, INTERVAL_1M, INTERVAL_5M, INTERVAL_15M, INTERVAL_1H, INTERVAL_1D } from "@/utils/exchanges";
+
 import type {
     OrderBookTypes, 
     ParsedOB,
     Candle,
 } from "@/utils/types";
 
-import { EXCHANGES, INTERVAL_1M, INTERVAL_5M, INTERVAL_15M, INTERVAL_1H, INTERVAL_1D } from "@/utils/exchanges.ts";
 import type { CandlestickData } from 'lightweight-charts';
 
 export class BybitSocketParser {
     public readonly exchangeId = EXCHANGES.BYBIT;
 
     private pingIntervalId: number | null = null;
+
+    private intervalMap: Record<string, string> = {
+        [INTERVAL_1M]: '1',
+        [INTERVAL_5M]: '5',
+        [INTERVAL_15M]: '15',
+        [INTERVAL_1H]: '60',
+        [INTERVAL_1D]: 'D',
+    }; 
 
     constructor() { };
 
@@ -23,10 +32,8 @@ export class BybitSocketParser {
     };
 
     stopPing() {
-        if (this.pingIntervalId) {
-            clearInterval(this.pingIntervalId);
-            this.pingIntervalId = null;
-        }
+        clearInterval(this.pingIntervalId ?? undefined);
+        this.pingIntervalId = null;
     };
 
     pong = async (_ws: WebSocket, msg: MessageEvent<any>): Promise<boolean | undefined> => {
@@ -38,14 +45,6 @@ export class BybitSocketParser {
     }
 
     link = async (): Promise<string> => "wss://stream.bybit.com/v5/public/spot";
-
-    intervalMap: Record<string, string> = {
-        [INTERVAL_1M]: '1',
-        [INTERVAL_5M]: '5',
-        [INTERVAL_15M]: '15',
-        [INTERVAL_1H]: '60',
-        [INTERVAL_1D]: 'D',
-    }; 
 
     sub_msg = async (pair: string, interval: string): Promise<string> => {
         const [base, quote] = pair.split('/');
@@ -101,7 +100,6 @@ export class BybitSocketParser {
 
         const candleArray = data.data;
         const candle = candleArray[0];
-
         return {
             time: candle.start / 1000,
             open: Number(candle.open),

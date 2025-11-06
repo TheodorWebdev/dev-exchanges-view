@@ -1,9 +1,10 @@
+import { EXCHANGES } from "@/utils/exchanges";
+
 import type {
     OrderBookTypes,
     ParsedOB,
     Candle,
-} from "@/utils/types.ts";
-import { EXCHANGES } from "@/utils/exchanges.ts";
+} from "@/utils/types";
 
 export class BinanceSocketParser {
     public readonly exchangeId = EXCHANGES.BINANCE;
@@ -14,12 +15,7 @@ export class BinanceSocketParser {
 
     startPing = () => { };
 
-    stopPing = () => {
-        if (this.pingIntervalId) {
-            clearInterval(this.pingIntervalId);
-            this.pingIntervalId = null;
-        }
-    };
+    stopPing = () => { };
 
     pong = () => {};
 

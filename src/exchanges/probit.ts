@@ -1,21 +1,33 @@
-import { EXCHANGES } from "@/utils/exchanges.ts";
-import type { Candle, ParsedOB, ProbitOrder } from "@/utils/types.ts";
+import { EXCHANGES, INTERVAL_15M, INTERVAL_1D, INTERVAL_1H, INTERVAL_1M, INTERVAL_5M } from "@/utils/exchanges";
+
+import type { 
+    Candle, 
+    ParsedOB, 
+    ProbitOrder 
+} from "@/utils/types";
 
 export class ProbitSocketParser {
     public readonly exchangeId = EXCHANGES.PROBIT;
 
     private pingIntervalId: number | null = null;
 
+    private currentCandle: { open: number; high: number; low: number; close: number; time: number } | undefined;
+
+    private intervalMap: Record<string, number> = {
+        [INTERVAL_1M]: 60 * 1000,
+        [INTERVAL_5M]: 5 * 60 * 1000,
+        [INTERVAL_15M]: 15 * 60 * 1000,
+        [INTERVAL_1H]: 60 * 60 * 1000,
+        [INTERVAL_1D]: 24 * 60 * 60 * 1000,
+    };
+
+    private intervalMs: number = 60 * 1000;
+
     constructor() { };
 
     startPing = () => { };
 
-    stopPing = () => {
-        if (this.pingIntervalId) {
-            clearInterval(this.pingIntervalId);
-            this.pingIntervalId = null;
-        }
-    };
+    stopPing = () => { };
 
     pong = () => {};
 
@@ -78,13 +90,51 @@ export class ProbitSocketParser {
         };
     }
 
-    private currentCandle: { open: number; high: number; low: number; close: number; time: number } | undefined = undefined;
-
     cs_parse = async (_ws: WebSocket, msg: MessageEvent<any>): Promise<Candle | undefined> => {
         const message = JSON.parse(msg.data);
 
         if (!(message.recent_trades && Array.isArray(message.recent_trades))) return;
 
+        if (message.recent_trades.length === 100) {
+            const trades = message.recent_trades;
+
+            const lastTrade = trades[trades.length - 1];
+            const lastTradeTimeMs = new Date(lastTrade.time).getTime();
+            const intervalMs = this.intervalMs;
+
+            const tradesInLastMinute = trades.filter((trade: any) => {
+                const tradeTimeMs = new Date(trade.time).getTime();
+                
+                return tradeTimeMs >= (lastTradeTimeMs - intervalMs) && tradeTimeMs <= lastTradeTimeMs;
+            });
+
+            if (tradesInLastMinute.length > 0) {
+                const firstTradeInInterval = tradesInLastMinute[0];
+                const lastTradeInInterval = tradesInLastMinute[tradesInLastMinute.length - 1];
+
+                const open = Number(firstTradeInInterval.price);
+                const close = Number(lastTradeInInterval.price);
+                let high = open;
+                let low = open;
+
+                for (const trade of tradesInLastMinute) {
+                    const price = Number(trade.price);
+                    if (price > high) high = price;
+                    if (price < low) low = price;
+                }
+
+                const intervalStartTimestampMs = Math.floor(lastTradeTimeMs / intervalMs) * intervalMs;
+
+                return this.currentCandle = {
+                    open: open,
+                    high: high,
+                    low: low,
+                    close: close,
+                    time: Math.floor(intervalStartTimestampMs / 1000),
+                };
+            }
+        }
+        
         const trade = message.recent_trades[0];
 
         if (!trade) return;
@@ -93,7 +143,7 @@ export class ProbitSocketParser {
         const timeMs = new Date(trade.time).getTime();
         const time = Math.floor(timeMs / 1000);
 
-        const interval = 60;
+        const interval = this.intervalMs / 1000;
         const candleTime = Math.floor(time / interval) * interval;
 
         if (!this.currentCandle || this.currentCandle.time !== candleTime) {
@@ -126,20 +176,14 @@ export class ProbitSocketParser {
     };
 
     cs_loadhistory = async (_ws: WebSocket, pair: string, interval: string, limit = 200): Promise<Candle[] | undefined> => {
+        this.intervalMs = this.intervalMap[interval];
+
         const [base, quote] = pair.split('/');
         const marketId = `${base}-${quote}`;
         const i = interval === "1d" ? "1D" : interval;
 
-        const weights: Record<string, number> = {
-            "1m": 60 * 1000,
-            "5m": 5 * 60 * 1000,
-            "15m": 15 * 60 * 1000,
-            "1h": 60 * 60 * 1000,
-            "1d": 24 * 60 * 60 * 1000,
-        };
-
         const now = Date.now();
-        const intervalMs = weights[interval];
+        const intervalMs = this.intervalMap[interval];
         const start = new Date(now - limit * intervalMs).toISOString();
         const end = new Date(now).toISOString();
 

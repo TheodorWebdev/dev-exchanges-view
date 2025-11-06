@@ -1,5 +1,4 @@
-import { useLayoutEffect, useRef, useState } from 'react';
-
+import { useEffect, useRef, useState } from 'react';
 import { Card, Flex, HStack, Text, Box } from '@chakra-ui/react';
 
 import { CandlestickSeries, createChart } from 'lightweight-charts';
@@ -16,7 +15,7 @@ export default function TradingChart() {
 	const [hoverData, setHoverData] = useState<any>(null);
 	const currentIntervalRef = useRef<string>("");
 
-	useLayoutEffect(() => {
+	useEffect(() => {
 		if (!chartContainerRef.current) return;
 
 		const chart = createChart(chartContainerRef.current, {
@@ -60,15 +59,19 @@ export default function TradingChart() {
 
 		const candlesUpdateHandler = (data: any) => {
 			if (data.type === 'init') {
-				const chartData: CandlestickData[] = data.candles.map((c: Candle) => ({
-					time: c.time as UTCTimestamp,
-					open: c.open,
-					high: c.high,
-					low: c.low,
-					close: c.close,
-				}));
-				candleSeries.setData(chartData);
-				currentIntervalRef.current = data.interval;
+				if (data.candles.length === 0) {
+					candleSeries.setData([]);
+				} else {
+					const chartData: CandlestickData[] = data.candles.map((c: Candle) => ({
+						time: c.time as UTCTimestamp,
+						open: c.open,
+						high: c.high,
+						low: c.low,
+						close: c.close,
+					}));
+					candleSeries.setData(chartData);
+					currentIntervalRef.current = data.interval;
+				}
 			} else {
 				const newCandle: Candle = data;
 				candleSeries.update({
@@ -85,7 +88,6 @@ export default function TradingChart() {
 
 		candleSeriesRef.current = candleSeries;
 
-		// --- Tooltip при наведении ---
 		chart.subscribeCrosshairMove((param) => {
 			if (
 				!param.time ||
@@ -115,19 +117,19 @@ export default function TradingChart() {
 		<Card.Root w="60vw" h="70vh">
 			<Card.Body >
 				<Flex w="100%" justify="space-between" mb={2} p={2} bg="gray.800" borderRadius="md" fontSize="sm" >
-				{hoverData ? (
-					<HStack>
-						<Text color="teal.300">O: {hoverData.open.toFixed(2)}</Text>
-						<Text color="teal.300">H: {hoverData.high.toFixed(2)}</Text>
-						<Text color="teal.300">L: {hoverData.low.toFixed(2)}</Text>
-						<Text color="teal.300">C: {hoverData.close.toFixed(2)}</Text>
-					</HStack>
-				) : (
-					<Text color="gray.400">Наведите на свечу...</Text>
-				)}
+					{hoverData ? (
+						<HStack>
+							<Text color="teal.300">Open: {hoverData.open.toFixed(2)}</Text>
+							<Text color="teal.300">High: {hoverData.high.toFixed(2)}</Text>
+							<Text color="teal.300">Low: {hoverData.low.toFixed(2)}</Text>
+							<Text color="teal.300">Close: {hoverData.close.toFixed(2)}</Text>
+						</HStack>
+					) : (
+						<Text color="gray.400">Point to candle...</Text>
+					)}
 				</Flex>
 
-				<Box ref={chartContainerRef} w="100%" h="100%" borderRadius="md" overflow="hidden" />
+				<Box ref={chartContainerRef} w="100%" h="90%" borderRadius="md" overflow="hidden" textAlign="center" />
 			</Card.Body>
 		</Card.Root>
 	);

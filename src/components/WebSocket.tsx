@@ -5,7 +5,7 @@ import { BybitSocketParser } from '@/exchanges/bybit';
 import { ProbitSocketParser } from '@/exchanges/probit.ts';
 
 import { eventEmitter, EVENTS } from '@/utils/events';
-import {type Candle, type OrderBookTypes} from '@/utils/types';
+import type { Candle, OrderBookTypes } from '@/utils/types';
 
 export default function WebSocketComponent() {
 	const candlestickDataRef = useRef<Candle[]>([]);
@@ -16,7 +16,7 @@ export default function WebSocketComponent() {
 
 	const clearConnect = () => {
 		if (wsRef.current) {
-			console.log('WebSocket: закрываем старое соединение');
+			console.log('[WS]: Close previous connection');
 			wsRef.current.close();
 			wsRef.current = null;
 			candlestickDataRef.current = [];
@@ -89,7 +89,6 @@ export default function WebSocketComponent() {
 		}
 	}
 
-	// Подписка на события смены вебсокет соединения
 	useEffect(() => {
 		const handleConnectionChange = ({ wsUrl, exchange, pair, interval }: { wsUrl: string, exchange: string, pair: string, interval: string } ) => {
 			clearConnect();
@@ -113,7 +112,7 @@ export default function WebSocketComponent() {
 			const ws = new WebSocket(wsUrl);
 
 			ws.onopen = async () => {
-				console.log("[WS] Cоединение создано");
+				console.log("[WS]: Connection is open");
 
 				const msg = await parser.sub_msg(pair, interval)
 				ws.send(msg);
@@ -128,7 +127,7 @@ export default function WebSocketComponent() {
 							eventEmitter.emit(EVENTS.CANDLES_UPDATE, { type: 'init', candles: history, interval: interval });
 						}
 					} catch (error) {
-						console.error('Error: ', error);
+						console.error('[Parser] Error: ', error);
 					}
 				}
 			};
@@ -148,37 +147,33 @@ export default function WebSocketComponent() {
 				parser.stopPing();
 				
 				if (event.wasClean) {
-					console.log(`[close] Соединение закрыто чисто, код=${event.code}`);
+					console.log('[WS]: Connection is clearly closed');
 				} else {
-					console.log('[close] Соединение прервано');
+					console.log('[WS]: Connection is emergency closed');
 				}
 			};
 
 			ws.onerror = (error) => {
-				console.error('Ошибка WebSocket:', error);
+				console.error('[WS] Error:', error);
 			};
 
 			wsRef.current = ws;
 		};
 
-		// Подписка на событие изменения соединения
 		const unsubscribe = eventEmitter.on(EVENTS.WEBSOCKET_CONNECTION_CHANGE, handleConnectionChange);
 
 		return () => {
 			unsubscribe();
 			if (wsRef.current) {
-				console.log('WebSocket: закрываем соединение при размонтировании');
 				wsRef.current.close();
 			}
 		};
 	}, []);
 
-	// Периодическая отправка событий с определённым интервалом
 	useEffect(() => {
 		const updateInterval = 1000;
 
 		const candlesInterval = setInterval(() => {
-			// Инициализация событий: candlestick data
 			const lastCandle = candlestickDataRef.current[candlestickDataRef.current.length - 1];
 			if (lastCandle) {
 				eventEmitter.emit(EVENTS.CANDLES_UPDATE, lastCandle);
@@ -186,7 +181,6 @@ export default function WebSocketComponent() {
 		}, updateInterval);
 
 		const orderbookInterval = setInterval(() => {
-			// Инициализация событий: order book
 			const bids = Array.from(bidsRef.current.values()).sort((a, b) => b.price - a.price).slice(0, 50);
 			const asks = Array.from(asksRef.current.values()).sort((a, b) => a.price - b.price).slice(0, 50);
 

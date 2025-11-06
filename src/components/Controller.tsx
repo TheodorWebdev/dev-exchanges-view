@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { HStack } from "@chakra-ui/react";
 
-import GenericSelector from "@/components/GenericSelector.tsx";
+import GenericSelector from "@/components/GenericSelector";
 
 import {
     INTERVAL_1M,
@@ -26,12 +26,16 @@ const Controller = () => {
 
     useEffect(() => {
         const wsUrl = SOCKET_URLS[exchange as keyof typeof SOCKET_URLS];
-        eventEmitter.emit(EVENTS.ORDERBOOK_UPDATE, JSON.stringify(''));
+        eventEmitter.emit(EVENTS.CANDLES_UPDATE, { type: 'init', candles: [] });
 
         setTimeout(() => {
             eventEmitter.emit(EVENTS.WEBSOCKET_CONNECTION_CHANGE, { wsUrl, exchange, pair, interval });
         }, 0);
     }, [exchange, pair, interval]);
+
+    useEffect(() => {
+        eventEmitter.emit(EVENTS.ORDERBOOK_UPDATE, JSON.stringify(''));
+    }, [exchange, pair]);
 
     return (
         <HStack>
