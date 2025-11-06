@@ -93,8 +93,6 @@ export default function WebSocketComponent() {
 	useEffect(() => {
 		const handleConnectionChange = ({ wsUrl, exchange, pair, interval }: { wsUrl: string, exchange: string, pair: string, interval: string } ) => {
 			clearConnect();
-			// currentIntervalRef.current = interval;
-			// currentExchangeRef.current = exchange;
 
 			switch (exchange) {
 				case "BINANCE": {
@@ -140,16 +138,10 @@ export default function WebSocketComponent() {
 				if (isPongMsg) return;
 				
 				const ob_parsed = await parserRef.current.ob_parse(ws, event);
+				if (ob_parsed) updateOrderBook(ob_parsed);
 
-				if (!ob_parsed) {
-					const cs_parsed = await parserRef.current.cs_parse(ws, event);
-					if (!cs_parsed) return;
-
-					updateCandleStick(cs_parsed);
-				}
-				else {
-					updateOrderBook(ob_parsed);
-				}
+				const cs_parsed = await parserRef.current.cs_parse(ws, event);
+				if (cs_parsed) updateCandleStick(cs_parsed);
 			};
 
 			ws.onclose = (event) => {

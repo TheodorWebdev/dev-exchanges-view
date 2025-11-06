@@ -95,12 +95,12 @@ export class BybitSocketParser {
     };
 
     cs_parse = async (_ws: WebSocket, msg: MessageEvent<any>): Promise<Candle | undefined> => {
-        const message = JSON.parse(msg.data);
+        const data = JSON.parse(msg.data);
 
-        if (message.ret_msg || !message.topic.includes('kline')) return;
+        if (data.ret_msg || !data.topic.includes('kline')) return;
 
-        const data = message.data;
-        const candle = data[0];
+        const candleArray = data.data;
+        const candle = candleArray[0];
 
         return {
             time: candle.start / 1000,

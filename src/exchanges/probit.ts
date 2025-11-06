@@ -32,6 +32,7 @@ export class ProbitSocketParser {
             market_id: marketId,
             filter: [
                 "order_books",
+                "recent_trades"
             ]
         });
     };
@@ -46,6 +47,7 @@ export class ProbitSocketParser {
             market_id: marketId,
             filter: [
                 "order_books",
+                "recent_trades"
             ]
         });
     };
@@ -76,58 +78,82 @@ export class ProbitSocketParser {
         };
     }
 
+    private currentCandle: { open: number; high: number; low: number; close: number; time: number } | undefined = undefined;
+
     cs_parse = async (_ws: WebSocket, msg: MessageEvent<any>): Promise<Candle | undefined> => {
         const message = JSON.parse(msg.data);
 
-        if (!Array.isArray(message?.data) || !message.data.length) return;
+        if (!(message.recent_trades && Array.isArray(message.recent_trades))) return;
 
-        const data = message.data;
-        const candle = data[0];
+        const trade = message.recent_trades[0];
 
-        console.log(candle)
+        if (!trade) return;
 
-        return {
-            time: candle.start / 1000,
-            open: Number(candle.open),
-            high: Number(candle.high),
-            low: Number(candle.low),
-            close: Number(candle.close),
+        const price = Number(trade.price);
+        const timeMs = new Date(trade.time).getTime();
+        const time = Math.floor(timeMs / 1000);
+
+        const interval = 60;
+        const candleTime = Math.floor(time / interval) * interval;
+
+        if (!this.currentCandle || this.currentCandle.time !== candleTime) {
+            if (this.currentCandle) {
+                const prevCandle = this.currentCandle;
+                this.currentCandle = {
+                    open: price,
+                    high: price,
+                    low: price,
+                    close: price,
+                    time: candleTime,
+                };
+                return prevCandle;
+            } else {
+                this.currentCandle = {
+                    open: price,
+                    high: price,
+                    low: price,
+                    close: price,
+                    time: candleTime,
+                };
+            }
+        } else {
+            this.currentCandle.high = Math.max(this.currentCandle.high, price);
+            this.currentCandle.low = Math.min(this.currentCandle.low, price);
+            this.currentCandle.close = price;
         }
+
+        return this.currentCandle;
     };
 
-    cs_loadhistory = async (_ws: WebSocket, pair: string, interval: string, limit = 100): Promise<Candle[] | undefined> => {
+    cs_loadhistory = async (_ws: WebSocket, pair: string, interval: string, limit = 200): Promise<Candle[] | undefined> => {
         const [base, quote] = pair.split('/');
         const marketId = `${base}-${quote}`;
+        const i = interval === "1d" ? "1D" : interval;
 
-        const types: Record<string, string> = {
-            "1min": "1m",
-            "5min": "5m",
-            "15min": "15m",
-            "30min": "30m",
-            "1hour": "1h",
-            "4hour": "4h",
-            "1day": "1D",
-            "1week": "1W",
+        const weights: Record<string, number> = {
+            "1m": 60 * 1000,
+            "5m": 5 * 60 * 1000,
+            "15m": 15 * 60 * 1000,
+            "1h": 60 * 60 * 1000,
+            "1d": 24 * 60 * 60 * 1000,
         };
 
         const now = Date.now();
-        const intervalMs = 5 * 60 * 1000;
+        const intervalMs = weights[interval];
         const start = new Date(now - limit * intervalMs).toISOString();
         const end = new Date(now).toISOString();
 
-        const url = `http://localhost:5173/probit-api/api/exchange/v1/candle?market_ids=${marketId}&interval=${types[interval] ?? "5m"}&start_time=${start}&end_time=${end}&limit=${limit}&sort=asc`;
+        const url = `http://localhost:5173/probit-api/api/exchange/v1/candle?market_ids=${marketId}&interval=${i}&start_time=${start}&end_time=${end}&limit=${limit}&sort=asc`;
 
         const res = await fetch(url, { headers: { accept: "application/json" } });
         const json = await res.json();
 
-        console.log(json)
-
         return (json.data ?? []).map((candle: any) => ({
             time: Math.floor(new Date(candle.start_time).getTime() / 1000),
-            open: +candle.open,
-            high: +candle.high,
-            low: +candle.low,
-            close: +candle.close,
+            open: Number(candle.open),
+            high: Number(candle.high),
+            low: Number(candle.low),
+            close: Number(candle.close),
         }));
     }
 }

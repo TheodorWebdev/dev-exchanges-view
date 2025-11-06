@@ -72,11 +72,11 @@ export class BinanceSocketParser {
     };
 
     cs_parse = async (_ws: WebSocket, msg: MessageEvent<any>): Promise<Candle | undefined> => {
-        const message = JSON.parse(msg.data);
+        const data = JSON.parse(msg.data);
 
-        if (message.method || !message.e) return;
+        if (data.method || !data.e) return;
 
-        const k = message.k;
+        const k = data.k;
 
         return {
             time: Number(k.t) / 1000,
