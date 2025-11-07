@@ -4,9 +4,9 @@ export const CRC32_TABLE = (() => {
         let c = n;
         for (let k = 0; k < 8; k++) {
             c = (c & 1) ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1);
-        };
+        }
         table[n] = c >>> 0;
-    };
+    }
     return table;
 })();
 

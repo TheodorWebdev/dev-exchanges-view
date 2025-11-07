@@ -39,9 +39,7 @@ export class BybitSocketParser {
     pong = async (_ws: WebSocket, msg: MessageEvent<any>): Promise<boolean | undefined> => {
         const data = JSON.parse(msg.data);
 
-        if (data.ret_msg === 'pong') return true;
-
-        return false;
+        return data.ret_msg === 'pong';
     }
 
     link = async (): Promise<string> => "wss://stream.bybit.com/v5/public/spot";
@@ -109,7 +107,7 @@ export class BybitSocketParser {
         }
     };
 
-    cs_loadhistory = async (_ws: WebSocket, pair: string, interval: string): Promise<Candle[] | undefined> => {
+    cs_loadHistory = async (_ws: WebSocket, pair: string, interval: string): Promise<Candle[] | undefined> => {
         const [base, quote] = pair.split('/');
         const marketId = `${base}${quote}`;
         const i = this.intervalMap[interval];

@@ -1,5 +1,3 @@
-export type MessageType = 'orderbook' | 'kline' | 'unknown';
-
 export interface OrderBookTypes {
     price: number;
     amount: number;
@@ -24,11 +22,4 @@ export interface ProbitOrder {
     side: 'buy' | 'sell';
     price: string;
     quantity: string;
-}
-
-export interface FetchCandlesOptions {
-    type?: string;
-    limit?: number;
-    start?: number;
-    end?: number;
 }

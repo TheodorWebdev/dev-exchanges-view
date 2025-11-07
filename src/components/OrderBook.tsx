@@ -24,15 +24,16 @@ export default function OrderBook() {
 		const updateHandler = (rawData: string) => {
 			const currentChecksum = checksumCRC32(rawData);
 
-			if (lastChecksumRef.current === null || lastChecksumRef.current !== currentChecksum) {
-				try {
-					const parsedData = JSON.parse(rawData);
-					setOrderBookData(parsedData);
-					lastChecksumRef.current = currentChecksum;
-				} catch (e) {
-					console.error('Ошибка при парсинге данных:', e);
-				}
+			if (lastChecksumRef.current === currentChecksum) return;
+
+			try {
+				const parsedData = JSON.parse(rawData);
+				setOrderBookData(parsedData);
+				lastChecksumRef.current = currentChecksum;
+			} catch (e) {
+				console.error('Error while parsing data:', e);
 			}
+
 		};
 
 		eventEmitter.on(EVENTS.ORDERBOOK_UPDATE, updateHandler);

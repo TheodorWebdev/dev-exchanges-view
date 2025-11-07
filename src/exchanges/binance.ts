@@ -9,8 +9,6 @@ import type {
 export class BinanceSocketParser {
     public readonly exchangeId = EXCHANGES.BINANCE;
 
-    private pingIntervalId: number | null = null;
-
     constructor() { };
 
     startPing = () => { };
@@ -83,7 +81,7 @@ export class BinanceSocketParser {
         }
     }
 
-    cs_loadhistory = async (_ws: WebSocket, pair: string, interval: string) => {
+    cs_loadHistory = async (_ws: WebSocket, pair: string, interval: string) => {
         const [base, quote] = pair.split('/').map(s => s.toUpperCase());
         const marketId = `${base}${quote}`;
 

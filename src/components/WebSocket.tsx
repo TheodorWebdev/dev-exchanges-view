@@ -119,9 +119,9 @@ export default function WebSocketComponent() {
 
 				parser.startPing(ws);
 
-				if (parser.cs_loadhistory) {
+				if (parser.cs_loadHistory) {
 					try {
-						const history = await parser.cs_loadhistory(ws, pair, interval);
+						const history = await parser.cs_loadHistory(ws, pair, interval);
 						if (history.length > 0) {
 							candlestickDataRef.current = history;
 							eventEmitter.emit(EVENTS.CANDLES_UPDATE, { type: 'init', candles: history, interval: interval });

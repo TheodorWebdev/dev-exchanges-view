@@ -9,8 +9,6 @@ import type {
 export class ProbitSocketParser {
     public readonly exchangeId = EXCHANGES.PROBIT;
 
-    private pingIntervalId: number | null = null;
-
     private currentCandle: { open: number; high: number; low: number; close: number; time: number } | undefined;
 
     private intervalMap: Record<string, number> = {
@@ -175,7 +173,7 @@ export class ProbitSocketParser {
         return this.currentCandle;
     };
 
-    cs_loadhistory = async (_ws: WebSocket, pair: string, interval: string, limit = 200): Promise<Candle[] | undefined> => {
+    cs_loadHistory = async (_ws: WebSocket, pair: string, interval: string, limit = 200): Promise<Candle[] | undefined> => {
         this.intervalMs = this.intervalMap[interval];
 
         const [base, quote] = pair.split('/');
