@@ -80,6 +80,7 @@ export class BinanceSocketParser {
             high: Number(k.h),
             low: Number(k.l),
             close: Number(k.c),
+            volume: Number(k.v),
         }
     }
 
@@ -98,6 +99,7 @@ export class BinanceSocketParser {
             high: Number(item[2]),
             low: Number(item[3]),
             close: Number(item[4]),
+            volume: Number(item[5]),
         }));
 
         return candles;

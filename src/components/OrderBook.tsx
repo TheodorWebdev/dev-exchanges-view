@@ -24,13 +24,13 @@ export default function OrderBook() {
 		const updateHandler = (rawData: string) => {
 			const currentChecksum = checksumCRC32(rawData);
 
-			if (lastChecksumRef.current === null || lastChecksumRef.current !== currentChecksum) {
+			if (lastChecksumRef.current !== currentChecksum) {
 				try {
 					const parsedData = JSON.parse(rawData);
 					setOrderBookData(parsedData);
 					lastChecksumRef.current = currentChecksum;
 				} catch (e) {
-					console.error('Ошибка при парсинге данных:', e);
+					console.error('[OB] Error:', e);
 				}
 			}
 		};

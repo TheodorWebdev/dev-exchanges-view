@@ -1,19 +1,22 @@
 import { useEffect, useRef, useState } from 'react';
 import { Card, Flex, HStack, Text, Box } from '@chakra-ui/react';
 
-import { CandlestickSeries, createChart } from 'lightweight-charts';
-import type { ISeriesApi, CandlestickData, UTCTimestamp } from 'lightweight-charts';
+import { CandlestickSeries, createChart, HistogramSeries } from 'lightweight-charts';
+import type { ISeriesApi, CandlestickData, UTCTimestamp, HistogramData } from 'lightweight-charts';
 
 import { eventEmitter, EVENTS } from '@/utils/events';
 import type { Candle } from '@/utils/types';
 
 type CandlestickSeries = ISeriesApi<'Candlestick'>;
+type VolumeSeries = ISeriesApi<'Histogram'>;
 
 export default function TradingChart() {
 	const chartContainerRef = useRef<HTMLDivElement>(null);
 	const candleSeriesRef = useRef<CandlestickSeries | null>(null);
 	const [hoverData, setHoverData] = useState<any>(null);
 	const currentIntervalRef = useRef<string>("");
+
+	const volumeSeriesRef = useRef<VolumeSeries | null>(null);
 
 	useEffect(() => {
 		if (!chartContainerRef.current) return;
@@ -47,6 +50,7 @@ export default function TradingChart() {
 				},
 			},
 			rightPriceScale: { borderColor: '#333' },
+			autoSize: true,
 		});
 
 		const candleSeries = chart.addSeries(CandlestickSeries ,{
@@ -57,10 +61,27 @@ export default function TradingChart() {
 			wickDownColor: '#ef5350',
 		});
 
+		const volumeSeries = chart.addSeries(HistogramSeries, {
+			color: '#74b9ff',
+			priceFormat: {
+				type: 'volume',
+			},
+			priceScaleId: 'left',
+			priceLineVisible: false,
+		});
+
+		chart.priceScale('left').applyOptions({
+			scaleMargins: {
+				top: 0.8,
+				bottom: 0,
+			},
+		});
+
 		const candlesUpdateHandler = (data: any) => {
 			if (data.type === 'init') {
 				if (data.candles.length === 0) {
 					candleSeries.setData([]);
+					volumeSeries.setData([]);
 				} else {
 					const chartData: CandlestickData[] = data.candles.map((c: Candle) => ({
 						time: c.time as UTCTimestamp,
@@ -69,8 +90,17 @@ export default function TradingChart() {
 						low: c.low,
 						close: c.close,
 					}));
+
+					const volumeData: HistogramData[] = data.candles.map((c: Candle) => ({
+						time: c.time as UTCTimestamp,
+						value: c.volume || 0,
+						color: c.close >= c.open ? 'rgba(38, 166, 154, 0.5)' : 'rgba(239, 83, 80, 0.5)',
+					}));
+
 					candleSeries.setData(chartData);
+					volumeSeries.setData(volumeData);
 					currentIntervalRef.current = data.interval;
+					chart.timeScale().fitContent();
 				}
 			} else {
 				const newCandle: Candle = data;
@@ -81,28 +111,39 @@ export default function TradingChart() {
 					low: newCandle.low,
 					close: newCandle.close,
 				});
+				
+				volumeSeries.update({
+					time: newCandle.time as UTCTimestamp,
+					value: newCandle.volume,
+					color: newCandle.close >= newCandle.open ? 'rgba(38, 166, 154, 0.5)' : 'rgba(239, 83, 80, 0.5)',
+				});
 			}
 		};
 
 		eventEmitter.on(EVENTS.CANDLES_UPDATE, candlesUpdateHandler);
 
 		candleSeriesRef.current = candleSeries;
+		volumeSeriesRef.current = volumeSeries;
 
 		chart.subscribeCrosshairMove((param) => {
 			if (
 				!param.time ||
 				!param.seriesData.size ||
-				!candleSeriesRef.current
+				!candleSeriesRef.current ||
+				!volumeSeriesRef.current 
 			) {
 				setHoverData(null);
 				return;
 			}
 
 			const candleData = param.seriesData.get(candleSeriesRef.current) as CandlestickData;
+			const volumeData = param.seriesData.get(volumeSeriesRef.current) as HistogramData;
+			
 		
-			if (candleData) {
+			if (candleData && volumeData) {
 				setHoverData({
 					...candleData,
+					...volumeData,
 				});
 			}
 		});

@@ -106,6 +106,7 @@ export class BybitSocketParser {
             high: Number(candle.high),
             low: Number(candle.low),
             close: Number(candle.close),
+            volume: Number(candle.volume),
         }
     };
 
@@ -120,12 +121,13 @@ export class BybitSocketParser {
         const data = await response.json();
 
         if (data.retCode === 0) {
-            const candles: Candle[] = data.result.list.map(([time, open, high, low, close]: [string, string, string, string, string]) => ({
+            const candles: Candle[] = data.result.list.map(([time, open, high, low, close, volume]: [string, string, string, string, string, string]) => ({
                 time: Number(time) / 1000,
                 open: Number(open),
                 high: Number(high),
                 low: Number(low),
                 close: Number(close),
+                volume: Number(volume),
             })).sort((a: CandlestickData, b: CandlestickData) => (a.time as number) - (b.time as number));
 
             return candles;
